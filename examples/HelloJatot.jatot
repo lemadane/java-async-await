@@ -1,0 +1,45 @@
+package example;
+
+extension String! {
+    String! normalized() {
+        return this.trim().toUpperCase();
+    }
+}
+
+public class DashboardService {
+    private final CustomerService! customerService;
+    private final OrderService! orderService;
+
+    public DashboardService(
+            CustomerService! customerService,
+            OrderService! orderService) {
+        this.customerService = customerService;
+        this.orderService = orderService;
+    }
+
+    public Dashboard! load(UUID! customerId) {
+        final customerFuture =
+            async this.customerService.findRequired(customerId);
+
+        final ordersFuture =
+            async this.orderService.findForCustomer(customerId);
+
+        final customer = await customerFuture;
+        final orders = await ordersFuture;
+
+        final status = if (customer.isActive()) {
+            yield "ACTIVE";
+        } else {
+            yield "INACTIVE";
+        };
+
+        final city =
+            customer.address()?.city() ?? "Unknown";
+
+        final names = for (Order! order : orders) {
+            yield order.name().normalized();
+        };
+
+        return new Dashboard(customer, city, status, names);
+    }
+}

@@ -1,0 +1,129 @@
+plugins {
+    id 'application'
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'io.jatot'
+version = '0.1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+application {
+    mainClass = 'io.jatot.cli.JatotCli'
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.named('jar') {
+    manifest {
+        attributes('Main-Class': application.mainClass.get())
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs += ['build/generated/sources/jatot/main']
+        }
+    }
+    test {
+        java {
+            srcDirs += ['build/generated/sources/jatot/test']
+        }
+        resources {
+            srcDirs += ['src/test/jatot']
+        }
+    }
+}
+
+tasks.register('compileJatot', JavaExec) {
+    group = 'build'
+    description = 'Compiles main Jatot source files to Java.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.jatot.cli.JatotCli'
+    
+    doFirst {
+        new File('build/generated/sources/jatot/main').mkdirs()
+    }
+    
+    args 'compile', 'src/main/jatot', '-d', 'build/classes/java/main', '-cp', sourceSets.main.compileClasspath.asPath, '--save-java'
+    
+    inputs.dir('src/main/jatot').optional()
+    outputs.dir('build/generated/sources/jatot/main')
+    
+    dependsOn tasks.named('classes')
+}
+
+tasks.register('compileTestJatot', JavaExec) {
+    group = 'build'
+    description = 'Compiles test Jatot source files to Java.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.jatot.cli.JatotCli'
+    
+    doFirst {
+        new File('build/generated/sources/jatot/test').mkdirs()
+    }
+    
+    args 'compile', 'src/test/jatot', '-d', 'build/classes/java/test', '-cp', sourceSets.test.compileClasspath.asPath, '--save-java'
+    
+    inputs.dir('src/test/jatot').optional()
+    outputs.dir('build/generated/sources/jatot/test')
+    
+    dependsOn tasks.named('classes')
+}
+
+tasks.named('compileTestJava') {
+    dependsOn tasks.named('compileTestJatot')
+}
+
+tasks.register('checkJatot', JavaExec) {
+    group = 'verification'
+    description = 'Lexes and validates the example Jatot source file.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = application.mainClass
+    args 'check', 'examples/HelloJatot.jatot'
+    dependsOn tasks.named('classes')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+}
