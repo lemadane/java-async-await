@@ -510,9 +510,24 @@ public final class JavaEmitter {
             if (bin.operator().type() == io.jatot.lexer.TokenType.ASSIGN) {
                 return emitExpression(bin.left()) + " = " + emitExpression(bin.right());
             }
-            return "(" + emitExpression(bin.left()) + " " + bin.operator().lexeme() + " " + emitExpression(bin.right()) + ")";
+            // Textual boolean operators — translate to Java equivalents
+            String left = emitExpression(bin.left());
+            String right = emitExpression(bin.right());
+            return switch (bin.operator().type()) {
+                case AND  -> "(" + left + " && " + right + ")";
+                case OR   -> "(" + left + " || " + right + ")";
+                case NAND -> "(!(" + left + " && " + right + "))";
+                case NOR  -> "(!(" + left + " || " + right + "))";
+                case XOR  -> "(" + left + " != " + right + ")";
+                case XNOR -> "(" + left + " == " + right + ")";
+                default   -> "(" + left + " " + bin.operator().lexeme() + " " + right + ")";
+            };
         } else if (expr instanceof UnaryExpr un) {
             String opLex = un.operator().lexeme();
+            // Textual 'not' translates to '!'
+            if (un.operator().type() == io.jatot.lexer.TokenType.NOT) {
+                return "(!" + emitExpression(un.expression()) + ")";
+            }
             if (opLex.equals("++") || opLex.equals("--")) {
                 if (un.isPostfix()) {
                     return emitExpression(un.expression()) + opLex;

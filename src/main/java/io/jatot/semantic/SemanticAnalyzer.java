@@ -465,6 +465,24 @@ public final class SemanticAnalyzer implements ImportResolver {
             }
 
             io.jatot.lexer.TokenType opType = bin.operator().type();
+
+            // Textual boolean-only operators: require boolean operands on both sides
+            if (opType == io.jatot.lexer.TokenType.AND  ||
+                opType == io.jatot.lexer.TokenType.OR   ||
+                opType == io.jatot.lexer.TokenType.NAND ||
+                opType == io.jatot.lexer.TokenType.NOR  ||
+                opType == io.jatot.lexer.TokenType.XOR  ||
+                opType == io.jatot.lexer.TokenType.XNOR) {
+                String opName = bin.operator().lexeme();
+                if (left != null && !isBooleanType(left)) {
+                    error(bin.operator(), "Operator '" + opName + "' requires boolean operands, but found " + left.info().simpleName() + " on the left.");
+                }
+                if (right != null && !isBooleanType(right)) {
+                    error(bin.operator(), "Operator '" + opName + "' requires boolean operands, but found " + right.info().simpleName() + " on the right.");
+                }
+                return new ResolvedType(symbolTable.getType("boolean"), true, List.of(), 0);
+            }
+
             if (opType == io.jatot.lexer.TokenType.EQUAL_EQUAL || opType == io.jatot.lexer.TokenType.BANG_EQUAL ||
                 opType == io.jatot.lexer.TokenType.LESS || opType == io.jatot.lexer.TokenType.LESS_EQUAL ||
                 opType == io.jatot.lexer.TokenType.GREATER || opType == io.jatot.lexer.TokenType.GREATER_EQUAL ||
@@ -476,6 +494,13 @@ public final class SemanticAnalyzer implements ImportResolver {
             return left;
         } else if (expr instanceof UnaryExpr un) {
             ResolvedType type = checkExpression(un.expression());
+            // Textual 'not' — requires a boolean operand
+            if (un.operator().type() == io.jatot.lexer.TokenType.NOT) {
+                if (type != null && !isBooleanType(type)) {
+                    error(un.operator(), "Operator 'not' requires a boolean operand, but found " + type.info().simpleName() + ".");
+                }
+                return new ResolvedType(symbolTable.getType("boolean"), true, List.of(), 0);
+            }
             if (un.operator().type() == io.jatot.lexer.TokenType.PLUS_PLUS || un.operator().type() == io.jatot.lexer.TokenType.MINUS_MINUS) {
                 if (un.expression() instanceof IdentifierExpr id) {
                     LocalVar v = lookupVar(id.name());
@@ -723,5 +748,11 @@ public final class SemanticAnalyzer implements ImportResolver {
                 line,
                 col
         ));
+    }
+
+    private boolean isBooleanType(ResolvedType type) {
+        if (type == null) return false;
+        String name = type.info().fullName();
+        return name.equals("boolean") || name.equals("java.lang.Boolean");
     }
 }

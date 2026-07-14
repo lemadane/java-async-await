@@ -173,6 +173,135 @@ customer.name();
 order.calculateTotal();
 ```
 
+### Boolean operators
+
+Jatot supports seven boolean operators in both textual and symbolic form.
+
+#### Operator table
+
+| Textual   | Symbolic equivalent | Meaning                      |
+|-----------|---------------------|------------------------------|
+| `not`     | `!`                 | Logical negation             |
+| `and`     | `&&`                | Short-circuit logical AND    |
+| `or`      | `\|\|`              | Short-circuit logical OR     |
+| `nand`    | —                   | Negated logical AND          |
+| `nor`     | —                   | Negated logical OR           |
+| `xor`     | —                   | Exclusive OR                 |
+| `xnor`    | —                   | Logical equivalence          |
+
+The existing symbolic operators `!`, `&&`, and `||` remain fully supported and may be freely mixed with textual operators:
+
+```java
+boolean allowed = active && not suspended;
+boolean visible = enabled and !hidden;
+boolean accepted = valid || trusted or administrator;
+```
+
+#### Operator semantics
+
+| Expression     | Java equivalent        |
+|----------------|------------------------|
+| `not a`        | `!a`                   |
+| `a and b`      | `a && b`               |
+| `a or b`       | `a \|\| b`             |
+| `a nand b`     | `!(a && b)`            |
+| `a nor b`      | `!(a \|\| b)`          |
+| `a xor b`      | `a != b`               |
+| `a xnor b`     | `a == b`               |
+
+#### Truth table
+
+| A     | B     | AND   | OR    | NAND  | NOR   | XOR   | XNOR  |
+|-------|-------|-------|-------|-------|-------|-------|-------|
+| false | false | false | false | true  | true  | false | true  |
+| false | true  | false | true  | true  | false | true  | false |
+| true  | false | false | true  | true  | false | true  | false |
+| true  | true  | true  | true  | false | false | false | true  |
+
+#### Operator precedence (highest to lowest)
+
+1. Parentheses
+2. Unary `!` and `not`
+3. `&&`, `and`, `nand`
+4. `xor`, `xnor`
+5. `||`, `or`, `nor`
+
+Binary operators at the same level are left-associative:
+
+```java
+not a and b          // parsed as: (not a) and b
+a or b and c         // parsed as: a or (b and c)
+a xor b and c        // parsed as: a xor (b and c)
+a nand b or c        // parsed as: (a nand b) or c
+```
+
+#### Short-circuit behavior
+
+`and` and `or` have the same short-circuit semantics as `&&` and `||`.
+`nand` and `nor` also short-circuit where possible:
+
+```java
+false nand expensiveCheck()   // expensiveCheck() is NOT called — result is always true
+true  nor  expensiveCheck()   // expensiveCheck() is NOT called — result is always false
+```
+
+`xor` and `xnor` must evaluate both operands because their result depends on both values.
+
+#### Type checking
+
+All seven textual boolean operators are **boolean-only**. Using them on non-boolean values is a compile-time error:
+
+```java
+// Valid
+boolean result = ready and available;
+
+// Invalid — produces a compile error:
+// Operator 'and' requires boolean operands, but found int and int.
+int result = 10 and 20;
+```
+
+#### Reserved keywords
+
+The following identifiers are reserved as boolean operator keywords and may not be used as variable, method, or type names:
+
+```text
+not  and  or  nand  nor  xor  xnor
+```
+
+Note: `notification`, `android`, `ordinary`, `xorValue`, etc. remain valid identifiers because keywords are only matched on exact word boundaries.
+
+#### Realistic examples
+
+```java
+public boolean canAccess(
+        boolean authenticated,
+        boolean suspended,
+        boolean administrator) {
+
+    return authenticated and not suspended or administrator;
+}
+```
+
+```java
+public boolean exactlyOneSelected(
+        boolean emailSelected,
+        boolean smsSelected) {
+
+    return emailSelected xor smsSelected;
+}
+```
+
+```java
+public boolean haveSameStatus(
+        boolean firstActive,
+        boolean secondActive) {
+
+    return firstActive xnor secondActive;
+}
+```
+
+> **Note:** `xor` and `xnor` are Boolean-only operators. A future integer bitwise XOR operator, if added, will use a different symbol or keyword to avoid ambiguity.
+
 ### `if` expression
 
 ```java

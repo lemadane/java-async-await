@@ -605,11 +605,18 @@ public final class JatotLowerer implements ImportResolver {
             if (opType == TokenType.EQUAL_EQUAL || opType == TokenType.BANG_EQUAL ||
                 opType == TokenType.LESS || opType == TokenType.LESS_EQUAL ||
                 opType == TokenType.GREATER || opType == TokenType.GREATER_EQUAL ||
-                opType == TokenType.AND_AND || opType == TokenType.OR_OR) {
+                opType == TokenType.AND_AND || opType == TokenType.OR_OR ||
+                opType == TokenType.AND || opType == TokenType.OR ||
+                opType == TokenType.NAND || opType == TokenType.NOR ||
+                opType == TokenType.XOR || opType == TokenType.XNOR) {
                 return new ResolvedType(symbolTable.getType("boolean"), true, List.of(), 0);
             }
             return getTypeOf(bin.left());
         } else if (expr instanceof UnaryExpr un) {
+            if (un.operator().type() == TokenType.NOT ||
+                un.operator().type() == TokenType.BANG) {
+                return new ResolvedType(symbolTable.getType("boolean"), true, List.of(), 0);
+            }
             return getTypeOf(un.expression());
         } else if (expr instanceof MemberAccessExpr ma) {
             ResolvedType rec = getTypeOf(ma.receiver());

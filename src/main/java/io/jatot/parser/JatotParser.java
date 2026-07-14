@@ -766,13 +766,14 @@ public final class JatotParser {
         ASSIGNMENT,       // = += -=
         LAMBDA,           // ->
         NULL_COALESCING,  // ??
-        OR,               // ||
-        AND,              // &&
+        OR,               // ||  or  nor
+        XOR_XNOR,         // xor xnor
+        AND,              // &&  and  nand
         EQUALITY,         // == !=
         COMPARISON,       // < > <= >= instanceof
         TERM,             // + -
         FACTOR,           // * / %
-        UNARY,            // ! - ++ --
+        UNARY,            // ! not - ++ --
         CALL,             // . ?. ( [
         PRIMARY
     }
@@ -782,8 +783,9 @@ public final class JatotParser {
             case ASSIGN -> Precedence.ASSIGNMENT;
             case ARROW -> Precedence.LAMBDA;
             case NULL_COALESCING -> Precedence.NULL_COALESCING;
-            case OR_OR -> Precedence.OR;
-            case AND_AND -> Precedence.AND;
+            case OR_OR, OR, NOR -> Precedence.OR;
+            case XOR, XNOR -> Precedence.XOR_XNOR;
+            case AND_AND, AND, NAND -> Precedence.AND;
             case EQUAL_EQUAL, BANG_EQUAL -> Precedence.EQUALITY;
             case LESS, LESS_EQUAL, GREATER, GREATER_EQUAL -> Precedence.COMPARISON;
             case PLUS, MINUS -> Precedence.TERM;
@@ -863,6 +865,11 @@ public final class JatotParser {
                 }
             }
             case BANG, MINUS, PLUS -> {
+                Expression right = parseExpression(Precedence.UNARY);
+                yield new UnaryExpr(token, right, false);
+            }
+            case NOT -> {
+                // Textual 'not' operator — same precedence as '!'
                 Expression right = parseExpression(Precedence.UNARY);
                 yield new UnaryExpr(token, right, false);
             }
@@ -987,6 +994,37 @@ public final class JatotParser {
             case ASSIGN -> {
                 // Right-associative
                 Expression right = parseExpression(Precedence.values()[precedence.ordinal() - 1]);
+                yield new BinaryExpr(left, op, right);
+            }
+            // Textual binary boolean operators — lower to equivalent BinaryExpr
+            case AND -> {
+                // 'and' -> same as '&&'  (short-circuit AND)
+                Expression right = parseExpression(Precedence.AND);
+                yield new BinaryExpr(left, op, right);
+            }
+            case OR -> {
+                // 'or' -> same as '||'  (short-circuit OR)
+                Expression right = parseExpression(Precedence.OR);
+                yield new BinaryExpr(left, op, right);
+            }
+            case NAND -> {
+                // 'nand' -> short-circuit: !(left && right)
+                Expression right = parseExpression(Precedence.AND);
+                yield new BinaryExpr(left, op, right);
+            }
+            case NOR -> {
+                // 'nor' -> short-circuit: !(left || right)
+                Expression right = parseExpression(Precedence.OR);
+                yield new BinaryExpr(left, op, right);
+            }
+            case XOR -> {
+                // 'xor' -> both operands evaluated: left != right
+                Expression right = parseExpression(Precedence.XOR_XNOR);
+                yield new BinaryExpr(left, op, right);
+            }
+            case XNOR -> {
+                // 'xnor' -> both operands evaluated: left == right
+                Expression right = parseExpression(Precedence.XOR_XNOR);
                 yield new BinaryExpr(left, op, right);
             }
             default -> {

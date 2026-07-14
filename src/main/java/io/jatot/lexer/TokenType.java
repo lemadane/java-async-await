@@ -43,6 +43,15 @@ public enum TokenType {
     THROW,
     INSTANCEOF,
 
+    // Textual boolean operators
+    NOT,
+    AND,
+    OR,
+    NAND,
+    NOR,
+    XOR,
+    XNOR,
+
     OPTIONAL_CHAIN,
     NULL_COALESCING,
     BANG,

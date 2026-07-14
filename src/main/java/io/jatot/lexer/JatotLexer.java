@@ -175,7 +175,7 @@ public final class JatotLexer {
     }
 
     private void scanIdentifier() {
-        while (isIdentifierPart(peek())) {
+        while (!isAtEnd() && isIdentifierPart(peek())) {
             advance();
         }
 
@@ -283,6 +283,13 @@ public final class JatotLexer {
         keywords.put("throws", TokenType.THROWS);
         keywords.put("throw", TokenType.THROW);
         keywords.put("instanceof", TokenType.INSTANCEOF);
+        keywords.put("not",  TokenType.NOT);
+        keywords.put("and",  TokenType.AND);
+        keywords.put("or",   TokenType.OR);
+        keywords.put("nand", TokenType.NAND);
+        keywords.put("nor",  TokenType.NOR);
+        keywords.put("xor",  TokenType.XOR);
+        keywords.put("xnor", TokenType.XNOR);
         return Map.copyOf(keywords);
     }
 }
