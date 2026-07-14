@@ -1,5 +1,9 @@
 # Jatot
 
+[![CI](https://github.com/lemadane/jatot-lang/actions/workflows/ci.yml/badge.svg)](https://github.com/lemadane/jatot-lang/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java 21](https://img.shields.io/badge/Java-21-blue.svg)](https://openjdk.org/projects/jdk/21/)
+
 **Jatot** is a Java-compatible language that adds practical features Java developers often wish Java already had—without making the language feel unfamiliar.
 
 **Pronunciation:** *Jato* — the final `t` is silent.
@@ -15,15 +19,18 @@ Jatot is currently in the **compiler-foundation stage**.
 The repository already contains:
 
 - a Java 21 Gradle project
-- a lexer for the agreed Jatot keywords and operators
+- a **lexer** for Jatot keywords and operators
+- a **parser** producing a full abstract syntax tree
+- **semantic analysis** with symbol resolution and type checking
+- a **lowering** pass that transforms Jatot AST constructs to Java-compatible forms
+- a **Java source emitter** for transpilation output
 - source-file and diagnostic abstractions
-- a CLI with `check` and `tokens` commands
-- an initial compilation-unit model
-- a Virtual Thread runtime prototype for future `async` and `await` lowering
-- JUnit 5 tests
+- a CLI with `check`, `tokens`, and `checkJatot` commands
+- a Virtual Thread runtime prototype for `async`/`await` lowering
+- JUnit 5 tests (including end-to-end compiler tests)
 - an example `.jatot` source file
 
-The project does **not yet transpile complete Jatot source code into Java**. The next major milestone is a parser, a typed abstract syntax tree, symbol resolution, and Java source emission.
+The compiler pipeline is functional from lexing through Java emission. Work continues on expanding language feature coverage and hardening the transpilation output.
 
 ## Design goal
 
@@ -545,22 +552,16 @@ Place your `.jatot` source files in `src/main/jatot/` and they will be automatic
 
 ## Build
 
-The standard Gradle Wrapper scripts and wrapper JAR have not yet been generated in this scaffold. With Gradle installed locally, run:
-
-```bash
-gradle wrapper --gradle-version 9.6.1
-```
-
-Then build with:
+Build with the included Gradle wrapper:
 
 ```bash
 ./gradlew clean build
 ```
 
-Or use an installed Gradle directly:
+On Windows:
 
-```bash
-gradle clean build
+```cmd
+gradlew.bat clean build
 ```
 
 ## Run the current CLI
@@ -601,49 +602,46 @@ jatot/
 ├── examples/
 │   └── HelloJatot.jatot
 ├── src/main/java/io/jatot/
-│   ├── ast/          Initial compilation-unit representation
+│   ├── ast/          Abstract syntax tree model
 │   ├── cli/          Command-line interface
 │   ├── compiler/     Compiler pipeline entry point
 │   ├── diagnostic/   Errors and warnings
+│   ├── emitter/      Java source code emitter
 │   ├── lexer/        Tokenization
+│   ├── lowering/     AST lowering (Jatot → Java-compatible forms)
+│   ├── parser/       Recursive-descent parser
 │   ├── runtime/      Virtual Thread runtime prototype
-│   └── source/       Source-file abstraction
+│   ├── semantic/     Semantic analysis and type checking
+│   ├── source/       Source-file abstraction
+│   └── symbol/       Symbol table and scope management
 └── src/test/java/io/jatot/
     ├── compiler/
     ├── lexer/
     └── runtime/
 ```
 
-## Current compiler pipeline
-
-```text
-.jatot file
-    ↓
-SourceFile
-    ↓
-JatotLexer
-    ↓
-Token stream and diagnostics
-    ↓
-Initial CompilationUnit
-```
-
-The intended complete pipeline is:
+## Compiler pipeline
 
 ```text
 .jatot source
     ↓
-lexer
+SourceFile          — source-file abstraction
     ↓
-parser
+JatotLexer          — tokenization
     ↓
-typed AST
+Token stream        — keywords, operators, literals, identifiers
     ↓
-symbol resolution and semantic analysis
+JatotParser         — recursive-descent parsing
     ↓
-Java source emitter
+AST                 — abstract syntax tree
     ↓
-javac
+SemanticAnalyzer    — symbol resolution, type checking, diagnostics
+    ↓
+JatotLowerer        — AST lowering (Jatot constructs → Java-compatible forms)
+    ↓
+JavaEmitter         — Java source emission
+    ↓
+javac               — standard Java compilation
     ↓
 JVM bytecode
 ```

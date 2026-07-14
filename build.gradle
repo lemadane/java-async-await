@@ -114,6 +114,33 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
+
+            pom {
+                name = 'Jatot'
+                description = 'A Java-compatible language that adds practical features Java developers often wish Java already had.'
+                url = 'https://github.com/lemadane/jatot-lang'
+
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'lemadane'
+                        name = 'Lem Adane'
+                        url = 'https://github.com/lemadane'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/lemadane/jatot-lang.git'
+                    developerConnection = 'scm:git:ssh://github.com:lemadane/jatot-lang.git'
+                    url = 'https://github.com/lemadane/jatot-lang'
+                }
+            }
         }
     }
     repositories {
