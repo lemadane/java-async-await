@@ -666,6 +666,20 @@ public class UserController {
 
 The `jatot-html-spring` library will automatically intercept the returned `Component` (or raw `Html`), render it, and stream the HTML back to the browser.
 
+### 5. Running the Demo Web Application Locally
+
+The project includes an end-to-end demo under the `jatot-html-demo` module. You can try it yourself by following these steps:
+
+1. Build the project and run the demo application server:
+   ```bash
+   ./gradlew :jatot-html-demo:runDemo
+   ```
+   *(Or if you are already inside the `jatot-html-demo` directory: `../gradlew runDemo`)*
+
+2. Once the server starts on port `8080`, test the endpoints in your browser or using `curl`:
+   * **Nested HTML Component rendering:** [http://localhost:8080/users/Alice](http://localhost:8080/users/Alice)
+   * **Raw HTML Fragment rendering:** [http://localhost:8080/fragment](http://localhost:8080/fragment)
+
 ## Build
 
 Build with the included Gradle wrapper:

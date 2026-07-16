@@ -10,7 +10,7 @@ public class HelloJatot {
       for (var name : list) {
          messageList.add(name);
       }
-      for (final String message : messageList) {
+      for (var message : messageList) {
          System.out.println("Hello " + message);
       }
    }
