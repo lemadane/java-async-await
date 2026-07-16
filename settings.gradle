@@ -1,1 +1,6 @@
-rootProject.name = 'jatot'
+rootProject.name = 'jatot-native-html'
+
+include 'jatot-html-runtime'
+include 'jatot-html-spring'
+include 'jatot-compiler'
+include 'jatot-html-demo'

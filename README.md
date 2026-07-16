@@ -425,6 +425,60 @@ final customer =
     this.customerService.findRequired(id);
 ```
 
+### Generator functions
+
+Jatot supports generator functions to produce lazy, streamable sequences of values.
+* Declare the method with the `generator` modifier.
+* The method return type must be `Iterable<Type>` (or primitive/boxed types which lower to `Iterable`).
+* Inside the method, use `emit <value>` to yield items to the sequence.
+
+```java
+public generator int numbers(int limit) {
+    for (var i = 0; i < limit; i++) {
+        emit i;
+    }
+}
+```
+
+Usage:
+```java
+for (int val : numbers(5)) {
+    System.out.println(val); // prints 0, 1, 2, 3, 4
+}
+```
+
+### Native Server-Side HTML Components
+
+Jatot includes native support for server-side HTML templating via JSX-like markup tags directly integrated into the language.
+
+#### Syntax & Rules
+* **HTML Elements**: Lowercase tags (e.g. `<div class="card">`) represent standard HTML elements. Real HTML attribute names (`class`, `for`) are used instead of React-specific names (`className`, `htmlFor`).
+* **Jatot Components**: Capitalized tags (e.g. `<UserCard user={user} />`) represent custom component classes or records that implement the `io.jatot.html.Component` interface.
+* **Property Injection**: Component properties are matched to constructor parameters at compile-time. Property types, names, and presence of required attributes are checked at compile-time.
+* **Control Flow**: You can write conditionals (`{if (cond) { ... } else { ... }}`) and loops (`{for (var item : list) { ... }}`) directly inside the markup block to control structure dynamically.
+* **Fragments**: Use empty tags (`<> ... </>`) to group multiple elements without adding wrapping nodes to the DOM.
+* **Security & Escaping**: All dynamic text interpolations and standard attribute values are automatically HTML-escaped to prevent XSS. Dynamic URL attributes (like `href` or `src`) are automatically validated at runtime to filter out unsafe protocols (such as `javascript:`). Raw unescaped HTML can be injected using the `TrustedHtml` wrapper class.
+
+#### Example Component:
+```java
+package io.jatot.html.demo;
+
+import io.jatot.html.Component;
+import io.jatot.html.Html;
+
+public record UserCard(User user) implements Component {
+    @Override
+    public Html render() {
+        return (
+            <article class="user-card">
+                <h2>{this.user.name()}</h2>
+                <p>{this.user.email()}</p>
+            </article>
+        );
+    }
+}
+```
+
 ### Annotations
 
 Jatot fully supports standard Java and framework annotations (such as Spring Boot's `@RestController`, `@Autowired`, etc.) on classes, fields, methods, constructors, and method parameters:
@@ -526,7 +580,20 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.jatot:jatot:0.1.0-SNAPSHOT'
+    // Core Jatot Compiler
+    implementation 'io.jatot:jatot-compiler:0.1.0-alpha.1'
+    // HTML Components Runtime
+    implementation 'io.jatot:jatot-html-runtime:0.1.0-alpha.1'
+    // Spring Boot Auto-configuration & Return Value Handler
+    implementation 'io.jatot:jatot-html-spring:0.1.0-alpha.1'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs += ['build/generated/sources/jatot/main']
+        }
+    }
 }
 ```
 
@@ -536,19 +603,68 @@ Add the Jatot transpiler task to your `build.gradle` so `.jatot` files are autom
 
 ```groovy
 tasks.register('compileJatot', JavaExec) {
-    classpath = configurations.runtimeClasspath
-    mainClass = 'io.jatot.cli.JatotCLI'
-    args 'compile',
-         'src/main/jatot',       // Source directory containing your .jatot files
-         'build/classes/java/main', // Output .class directory
-         'build/generated/jatot'    // Output generated .java directory
-    dependsOn configurations.runtimeClasspath
+    group = 'build'
+    description = 'Compiles main Jatot source files to Java.'
+    classpath = configurations.compileClasspath
+    mainClass = 'io.jatot.cli.JatotCli'
+    workingDir = projectDir
+    
+    doFirst {
+        new File(projectDir, 'build/generated/sources/jatot/main').mkdirs()
+    }
+    
+    args 'compile', 'src/main/jatot', '-d', 'build/classes/java/main', '-cp', configurations.compileClasspath.asPath, '--save-java', 'build/generated/sources/jatot/main'
+    
+    inputs.dir('src/main/jatot').optional()
+    outputs.dir('build/generated/sources/jatot/main')
 }
 
 compileJava.dependsOn compileJatot
 ```
 
-Place your `.jatot` source files in `src/main/jatot/` and they will be automatically transpiled and compiled on every `./gradlew build`.
+### 4. Create and Use HTML Components in Spring Boot
+
+Place your `.jatot` files in `src/main/jatot/`.
+
+**src/main/jatot/UserCard.jatot**:
+```jatot
+package com.example.demo;
+
+import io.jatot.html.Component;
+import io.jatot.html.Html;
+
+public record UserCard(String name, String email) implements Component {
+    @Override
+    public Html render() {
+        return (
+            <div class="card">
+                <h3>{this.name}</h3>
+                <p>{this.email}</p>
+            </div>
+        );
+    }
+}
+```
+
+Then return the component directly from your Spring Boot controller:
+```java
+package com.example.demo;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import io.jatot.html.Component;
+
+@Controller
+public class UserController {
+
+    @GetMapping("/user")
+    public Component getUser() {
+        return new UserCard("Alice", "alice@example.com");
+    }
+}
+```
+
+The `jatot-html-spring` library will automatically intercept the returned `Component` (or raw `Html`), render it, and stream the HTML back to the browser.
 
 ## Build
 
@@ -599,25 +715,27 @@ jatot/
 ├── build.gradle
 ├── settings.gradle
 ├── gradle.properties
-├── examples/
-│   └── HelloJatot.jatot
-├── src/main/java/io/jatot/
-│   ├── ast/          Abstract syntax tree model
-│   ├── cli/          Command-line interface
-│   ├── compiler/     Compiler pipeline entry point
-│   ├── diagnostic/   Errors and warnings
-│   ├── emitter/      Java source code emitter
-│   ├── lexer/        Tokenization
-│   ├── lowering/     AST lowering (Jatot → Java-compatible forms)
-│   ├── parser/       Recursive-descent parser
-│   ├── runtime/      Virtual Thread runtime prototype
-│   ├── semantic/     Semantic analysis and type checking
-│   ├── source/       Source-file abstraction
-│   └── symbol/       Symbol table and scope management
-└── src/test/java/io/jatot/
-    ├── compiler/
-    ├── lexer/
-    └── runtime/
+├── jatot-compiler/
+│   ├── src/main/java/io/jatot/
+│   │   ├── ast/          Abstract syntax tree model
+│   │   ├── cli/          Command-line interface
+│   │   ├── compiler/     Compiler pipeline entry point
+│   │   ├── diagnostic/   Errors and warnings
+│   │   ├── emitter/      Java source code emitter
+│   │   ├── lexer/        Tokenization
+│   │   ├── lowering/     AST lowering (Jatot → Java-compatible forms)
+│   │   ├── parser/       Recursive-descent parser
+│   │   ├── semantic/     Semantic analysis and type checking
+│   │   ├── source/       Source-file abstraction
+│   │   └── symbol/       Symbol table and scope management
+│   └── src/test/java/io/jatot/
+├── jatot-html-runtime/
+│   └── src/main/java/io/jatot/html/  Core server-side HTML rendering APIs
+├── jatot-html-spring/
+│   └── src/main/java/io/jatot/html/spring/  Spring WebMVC integration
+└── jatot-html-demo/
+    ├── src/main/jatot/  Jatot components (User, UserCard, UserPage)
+    └── src/test/java/io/jatot/html/demo/  End-to-end integration and Spring Boot tests
 ```
 
 ## Compiler pipeline

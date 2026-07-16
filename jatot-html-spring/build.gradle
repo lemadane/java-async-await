@@ -1,0 +1,21 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    api project(':jatot-html-runtime')
+    compileOnly 'org.springframework:spring-webmvc:6.1.10'
+    compileOnly 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+}
