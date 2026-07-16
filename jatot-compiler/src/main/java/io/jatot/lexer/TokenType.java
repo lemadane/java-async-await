@@ -4,6 +4,7 @@ public enum TokenType {
     IDENTIFIER,
     NUMBER,
     STRING,
+    TEMPLATE_STRING,
 
     CLASS,
     INTERFACE,

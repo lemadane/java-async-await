@@ -832,6 +832,17 @@ public final class JatotParser {
             case FALSE -> new LiteralExpr(false, token);
             case NULL -> new LiteralExpr(null, token);
             case IDENTIFIER -> {
+                if (token.lexeme().equals("sql")) {
+                    Optional<TypeNode> resultType = Optional.empty();
+                    if (match(TokenType.LESS)) {
+                        resultType = Optional.of(parseType());
+                        consume(TokenType.GREATER, "Expected '>' after SQL result type.");
+                    }
+                    if (check(TokenType.TEMPLATE_STRING)) {
+                        Token templateToken = advance();
+                        yield parseSqlExpression(templateToken, resultType);
+                    }
+                }
                 // Could be start of lambda: x -> x
                 if (check(TokenType.ARROW)) {
                     advance(); // consume ->
@@ -1346,5 +1357,59 @@ public final class JatotParser {
             } while (match(TokenType.COMMA));
         }
         return arguments;
+    }
+    private Expression parseSqlExpression(Token templateToken, Optional<TypeNode> resultType) {
+        String content = templateToken.lexeme().substring(1, templateToken.lexeme().length() - 1);
+        StringBuilder queryBuilder = new StringBuilder();
+        List<Expression> interpolations = new ArrayList<>();
+        
+        int i = 0;
+        int len = content.length();
+        while (i < len) {
+            char c = content.charAt(i);
+            if (c == '{') {
+                int start = i + 1;
+                int depth = 1;
+                int end = -1;
+                for (int j = start; j < len; j++) {
+                    char nextC = content.charAt(j);
+                    if (nextC == '{') depth++;
+                    else if (nextC == '}') depth--;
+                    if (depth == 0) {
+                        end = j;
+                        break;
+                    }
+                }
+                if (end == -1) {
+                    throw error(templateToken, "Unterminated expression interpolation inside sql template string.");
+                }
+                String exprStr = content.substring(start, end);
+                Expression parsedExpr = parseInlineExpression(exprStr, templateToken);
+                interpolations.add(parsedExpr);
+                queryBuilder.append("?");
+                i = end + 1;
+            } else {
+                queryBuilder.append(c);
+                i++;
+            }
+        }
+        
+        return new SqlExpr(queryBuilder.toString(), interpolations, resultType, templateToken);
+    }
+
+    private Expression parseInlineExpression(String exprStr, Token templateToken) {
+        io.jatot.source.SourceFile file = new io.jatot.source.SourceFile(java.nio.file.Path.of("sql-inline-expression"), exprStr);
+        io.jatot.lexer.JatotLexer lexer = new io.jatot.lexer.JatotLexer(file);
+        io.jatot.lexer.LexResult lexResult = lexer.lex();
+        if (!lexResult.diagnostics().isEmpty()) {
+            throw error(templateToken, "Invalid expression syntax inside sql template string: " + lexResult.diagnostics().get(0).message());
+        }
+        
+        JatotParser parser = new JatotParser(file, lexResult.tokens());
+        Expression expr = parser.parseExpression(Precedence.NONE);
+        if (!parser.diagnostics().isEmpty()) {
+            throw error(templateToken, "Failed to parse expression inside sql template string: " + parser.diagnostics().get(0).message());
+        }
+        return expr;
     }
 }

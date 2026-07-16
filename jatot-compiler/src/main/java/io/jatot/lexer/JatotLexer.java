@@ -95,6 +95,7 @@ public final class JatotLexer {
                 // Position has already been advanced.
             }
             case '"' -> scanString();
+            case '`' -> scanTemplateString();
             default -> {
                 if (isDigit(character)) {
                     scanNumber();
@@ -157,6 +158,26 @@ public final class JatotLexer {
         }
 
         error("JATOT-L005", "Unterminated string literal.");
+    }
+
+    private void scanTemplateString() {
+        boolean escaped = false;
+        while (!isAtEnd()) {
+            char character = advance();
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (character == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (character == '`') {
+                add(TokenType.TEMPLATE_STRING);
+                return;
+            }
+        }
+        error("JATOT-L006", "Unterminated template string literal.");
     }
 
     private void scanNumber() {

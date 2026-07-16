@@ -332,4 +332,100 @@ class JatotEndToEndTest {
 
         runClass(binDir, "test.TernaryMain");
     }
+
+    @Test
+    void testSqlExpression() throws Exception {
+        String code = 
+            "package test;\n" +
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "public class SqlMain {\n" +
+            "    public static void main(String[] args) {\n" +
+            "        final id = 42;\n" +
+            "        final query = sql`SELECT * FROM users WHERE id = {id}`;\n" +
+            "    }\n" +
+            "}\n";
+
+        String dbCode =
+            "package io.jatot.sql;\n" +
+            "import java.util.List;\n" +
+            "public class Sql {\n" +
+            "    public static Object execute(String sql, List params, Class resultClass) {\n" +
+            "        return null;\n" +
+            "    }\n" +
+            "}\n";
+
+        Path tempDir = createTempDir();
+        Path srcDir = tempDir.resolve("src");
+        Path binDir = tempDir.resolve("bin");
+        Path genDir = tempDir.resolve("gen");
+        Files.createDirectories(srcDir);
+        Files.createDirectories(srcDir.resolve("io/jatot/sql"));
+
+        Files.writeString(srcDir.resolve("SqlMain.jatot"), code, StandardCharsets.UTF_8);
+        Files.writeString(srcDir.resolve("io/jatot/sql/Sql.java"), dbCode, StandardCharsets.UTF_8);
+
+        CompilationResult result = compile(srcDir, binDir, genDir);
+        assertTrue(result.successful(), "Compilation failed: " + result.diagnostics());
+    }
+
+    @Test
+    void testAsyncSqlExpression() throws Exception {
+        String code = 
+            "package test;\n" +
+            "import java.util.List;\n" +
+            "import java.util.Map;\n" +
+            "public class AsyncSqlMain {\n" +
+            "    public static void main(String[] args) {\n" +
+            "        final id = 42;\n" +
+            "        final queryFuture = async sql`SELECT * FROM users WHERE id = {id}`;\n" +
+            "        final query = await queryFuture;\n" +
+            "    }\n" +
+            "}\n";
+
+        String dbCode =
+            "package io.jatot.sql;\n" +
+            "import java.util.List;\n" +
+            "public class Sql {\n" +
+            "    public static Object execute(String sql, List params, Class resultClass) {\n" +
+            "        return null;\n" +
+            "    }\n" +
+            "}\n";
+
+        Path tempDir = createTempDir();
+        Path srcDir = tempDir.resolve("src");
+        Path binDir = tempDir.resolve("bin");
+        Path genDir = tempDir.resolve("gen");
+        Files.createDirectories(srcDir);
+        Files.createDirectories(srcDir.resolve("io/jatot/sql"));
+
+        Files.writeString(srcDir.resolve("AsyncSqlMain.jatot"), code, StandardCharsets.UTF_8);
+        Files.writeString(srcDir.resolve("io/jatot/sql/Sql.java"), dbCode, StandardCharsets.UTF_8);
+
+        CompilationResult result = compile(srcDir, binDir, genDir);
+        assertTrue(result.successful(), "Compilation failed: " + result.diagnostics());
+    }
+
+    @Test
+    void testSqlSyntaxErrors() throws Exception {
+        String code = 
+            "package test;\n" +
+            "public class SqlErrorMain {\n" +
+            "    public static void main(String[] args) {\n" +
+            "        final bad1 = sql`SELECT FROM users`;\n" +
+            "    }\n" +
+            "}\n";
+
+        Path tempDir = createTempDir();
+        Path srcDir = tempDir.resolve("src");
+        Path binDir = tempDir.resolve("bin");
+        Path genDir = tempDir.resolve("gen");
+        Files.createDirectories(srcDir);
+
+        Files.writeString(srcDir.resolve("SqlErrorMain.jatot"), code, StandardCharsets.UTF_8);
+
+        CompilationResult result = compile(srcDir, binDir, genDir);
+        assertFalse(result.successful());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("SQL Syntax Error") || d.message().contains("Expected select expressions")));
+    }
 }

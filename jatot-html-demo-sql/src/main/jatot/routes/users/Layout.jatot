@@ -1,0 +1,22 @@
+package io.jatot.html.demo.routes.users;
+
+import io.jatot.html.Component;
+import io.jatot.html.Html;
+import io.jatot.html.HtmlChildren;
+
+public record Layout(HtmlChildren children) implements Component {
+
+    @Override
+    public Html render() {
+        return (
+            <div class="user-portal">
+                <header>
+                    <h2>User Portal Dashboard</h2>
+                </header>
+                <main class="portal-content">
+                    {this.children}
+                </main>
+            </div>
+        );
+    }
+}

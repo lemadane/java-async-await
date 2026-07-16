@@ -726,6 +726,34 @@ public final class SemanticAnalyzer implements ImportResolver {
                 }
             }
             return new ResolvedType(listInfo, true, List.of(elemType), 0);
+        } else if (expr instanceof SqlExpr sql) {
+            for (Expression param : sql.interpolations()) {
+                checkExpression(param);
+            }
+            if (sql.query() == null) {
+                error(sql.token(), "SQL query literal must contain a query string.");
+            } else {
+                validateSqlSyntax(sql.query(), sql.token());
+            }
+            TypeInfo listInfo = symbolTable.getType("java.util.List");
+            if (sql.resultType().isPresent()) {
+                ResolvedType res = symbolTable.resolveTypeNode(sql.resultType().get(), this);
+                return new ResolvedType(listInfo, true, List.of(res), 0);
+            } else {
+                String trimmed = sql.query().trim().toUpperCase();
+                boolean isSelect = trimmed.startsWith("SELECT") || trimmed.startsWith("WITH") || trimmed.startsWith("SHOW") || trimmed.startsWith("DESCRIBE");
+                if (!isSelect) {
+                    TypeInfo intInfo = symbolTable.getType("int");
+                    return new ResolvedType(intInfo, true, List.of(), 0);
+                }
+                TypeInfo mapInfo = symbolTable.getType("java.util.Map");
+                TypeInfo stringInfo = symbolTable.getType("java.lang.String");
+                TypeInfo objectInfo = symbolTable.getType("java.lang.Object");
+                ResolvedType keyType = new ResolvedType(stringInfo, true, List.of(), 0);
+                ResolvedType valType = new ResolvedType(objectInfo, false, List.of(), 0);
+                ResolvedType mapType = new ResolvedType(mapInfo, true, List.of(keyType, valType), 0);
+                return new ResolvedType(listInfo, true, List.of(mapType), 0);
+            }
         } else if (expr instanceof NamedArgExpr named) {
             return checkExpression(named.expression());
         }
@@ -910,6 +938,95 @@ public final class SemanticAnalyzer implements ImportResolver {
         } else if (node instanceof FragmentNode fn) {
             for (MarkupNode n : fn.children()) {
                 checkMarkupNode(n);
+            }
+        }
+    }
+
+    private void validateSqlSyntax(String query, Token token) {
+        String trimmed = query.trim().toUpperCase();
+        if (trimmed.isEmpty()) {
+            error(token, "SQL query cannot be empty.");
+            return;
+        }
+
+        // 1. Parenthesis and quote matching
+        int parenDepth = 0;
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        for (int i = 0; i < query.length(); i++) {
+            char c = query.charAt(i);
+            if (c == '\'' && !inDoubleQuote) {
+                inSingleQuote = !inSingleQuote;
+            } else if (c == '"' && !inSingleQuote) {
+                inDoubleQuote = !inDoubleQuote;
+            } else if (!inSingleQuote && !inDoubleQuote) {
+                if (c == '(') parenDepth++;
+                else if (c == ')') parenDepth--;
+            }
+            if (parenDepth < 0) {
+                error(token, "Mismatched parentheses in SQL query: found closing ')' without opening '('.");
+                return;
+            }
+        }
+        if (inSingleQuote) {
+            error(token, "Unterminated single quote in SQL query.");
+            return;
+        }
+        if (inDoubleQuote) {
+            error(token, "Unterminated double quote in SQL query.");
+            return;
+        }
+        if (parenDepth > 0) {
+            error(token, "Mismatched parentheses in SQL query: unterminated opening '('.");
+            return;
+        }
+
+        // 2. Keyword check
+        String[] tokens = trimmed.split("\\s+");
+        if (tokens.length == 0) return;
+        String firstWord = tokens[0];
+
+        if (firstWord.equals("SELECT")) {
+            boolean hasFrom = false;
+            for (String t : tokens) {
+                if (t.equals("FROM")) {
+                    hasFrom = true;
+                    break;
+                }
+            }
+            if (hasFrom) {
+                int fromIndex = -1;
+                for (int i = 0; i < tokens.length; i++) {
+                    if (tokens[i].equals("FROM")) {
+                        fromIndex = i;
+                        break;
+                    }
+                }
+                if (fromIndex == tokens.length - 1) {
+                    error(token, "SQL Syntax Error: Expected table name or expression after 'FROM'.");
+                }
+                if (fromIndex == 1) {
+                    error(token, "SQL Syntax Error: Expected select expressions between 'SELECT' and 'FROM'.");
+                }
+            }
+        } else if (firstWord.equals("INSERT")) {
+            if (tokens.length < 2 || !tokens[1].equals("INTO")) {
+                error(token, "SQL Syntax Error: Expected 'INTO' after 'INSERT'.");
+            }
+        } else if (firstWord.equals("UPDATE")) {
+            boolean hasSet = false;
+            for (String t : tokens) {
+                if (t.equals("SET")) {
+                    hasSet = true;
+                    break;
+                }
+            }
+            if (!hasSet) {
+                error(token, "SQL Syntax Error: UPDATE query must contain 'SET' clause.");
+            }
+        } else if (firstWord.equals("DELETE")) {
+            if (tokens.length < 2 || !tokens[1].equals("FROM")) {
+                error(token, "SQL Syntax Error: Expected 'FROM' after 'DELETE'.");
             }
         }
     }

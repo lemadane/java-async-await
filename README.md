@@ -453,6 +453,55 @@ for (int val : numbers(5)) {
 }
 ```
 
+### Direct SQL Query Templating
+
+Jatot includes native support for SQL template query expressions (using backticks) that automatically parameterize dynamic variables to prevent SQL injection and map results directly to Java record types:
+
+* **Typed Select Query** (returns a `List<User>` mapped by column name):
+  ```java
+  List<User> list = sql<User>`SELECT name, email FROM users WHERE name = {name}`;
+  ```
+* **Untyped Select Query** (returns a list of row maps: `List<Map<String, Object>>`):
+  ```java
+  List<Map<String, Object>> rows = sql`SELECT * FROM users WHERE active = {isActive}`;
+  ```
+* **Insert/Update/Delete Query** (returns query update count `int`):
+  ```java
+  int updated = sql`UPDATE users SET email = {newEmail} WHERE name = {name}`;
+  ```
+
+Dynamic interpolation expressions (like `{name}`) are parsed and validated by the compiler, translating the template query directly into standard prepared statement execution at runtime.
+
+#### Compile-Time Query Syntax Checking
+
+The compiler automatically parses and validates the SQL syntax of all query literals at compile-time:
+* **Mismatched delimiters**: Detects unclosed quotes or mismatched parentheses in the SQL text.
+* **Keyword validation**: Enforces correct keyword structure (e.g. `SELECT` requiring `FROM`, `INSERT` requiring `INTO`, `UPDATE` requiring `SET`, and `DELETE` requiring `FROM`).
+
+Any syntax mistakes will immediately halt compilation and raise detailed compiler errors before code is deployed.
+
+#### Zero-Boilerplate Record Mapping (ORM)
+
+The runtime automatically maps database result set columns to Java records using constructor reflection:
+* **Name-Based Matching**: Maps columns directly to record constructor parameters with matching names (case-insensitive).
+* **Positional Fallback**: If compile parameter reflection names are unavailable (e.g., compiled without the `-parameters` flag) or a name match fails, it maps columns to parameters sequentially by select position.
+* **Recursive Nested Mapping**: If a record constructor contains a nested record type (e.g., `User(String name, Contact contact)` where `Contact` is `record Contact(String email)`), the mapper recursively instantiates the nested record matching the query columns.
+
+#### Synchronous Query Execution for Virtual Threads
+
+Because Jatot has native compiler-level support for **Virtual Threads (`async`/`await`)**, database query literals can be executed synchronously in lightweight thread contexts without blocking carrier system threads:
+
+```java
+final usersFuture = async sql<User>`SELECT * FROM users`;
+// ... concurrent operations ...
+final users = await usersFuture;
+```
+
+When a query blocks on database I/O, the JVM automatically unmounts the virtual thread, enabling high-performance concurrent database operations with standard, simple synchronous code.
+
+
+
+
 ### Native Server-Side HTML Components
 
 Jatot includes native support for server-side HTML templating via JSX-like markup tags directly integrated into the language.
@@ -463,6 +512,7 @@ Jatot includes native support for server-side HTML templating via JSX-like marku
 * **Property Injection**: Component properties are matched to constructor parameters at compile-time. Property types, names, and presence of required attributes are checked at compile-time.
 * **Control Flow**: You can write conditionals (`{if (cond) { ... } else { ... }}`) and loops (`{for (var item : list) { ... }}`) directly inside the markup block to control structure dynamically.
 * **Fragments**: Use empty tags (`<> ... </>`) to group multiple elements without adding wrapping nodes to the DOM.
+* **Compile-Time Optimization**: Adjacent static elements, attributes, and text nodes are merged at compile-time into single static string writes (e.g. `<article class="user-card"><h2>` is optimized to one literal write). There is zero Virtual DOM or runtime overhead.
 * **Security & Escaping**: All dynamic text interpolations and standard attribute values are automatically HTML-escaped to prevent XSS. Dynamic URL attributes (like `href` or `src`) are automatically validated at runtime to filter out unsafe protocols (such as `javascript:`). Raw unescaped HTML can be injected using the `TrustedHtml` wrapper class.
 
 #### Example Component:
@@ -672,19 +722,138 @@ public class UserController {
 
 The `jatot-html-spring` library will automatically intercept the returned `Component` (or raw `Html`), render it, and stream the HTML back to the browser.
 
-### 5. Running the Demo Web Application Locally
+### 5. File-Based Routing
 
-The project includes an end-to-end demo under the `jatot-html-demo` module. You can try it yourself by following these steps:
+Jatot supports file-based routing dynamically at startup. By mapping your package structure to URL endpoints, you can avoid writing manual `@GetMapping` mappings.
 
-1. Build the project and run the demo application server:
-   ```bash
-   ./gradlew :jatot-html-demo:runDemo
-   ```
-   *(Or if you are already inside the `jatot-html-demo` directory: `../gradlew runDemo`)*
+* Place your page components inside the `.routes` subpackage (e.g. `com.example.demo.routes`).
+* Declare a component class/record named `Page` that implements `io.jatot.html.Component`.
+* Directory path parameters use an underscore prefix (e.g. `_name`).
 
-2. Once the server starts on port `8080`, test the endpoints in your browser or using `curl`:
-   * **Nested HTML Component rendering:** [http://localhost:8080/users/Alice](http://localhost:8080/users/Alice)
-   * **Raw HTML Fragment rendering:** [http://localhost:8080/fragment](http://localhost:8080/fragment)
+#### File Structure Example:
+```text
+src/main/jatot/routes/
+├── Page.jatot               // Package com.example.demo.routes -> Maps GET "/"
+└── users/
+    └── _name/
+        └── Page.jatot       // Package com.example.demo.routes.users._name -> Maps GET "/users/{name}"
+```
+
+#### Page.jatot Constructor Parameter Injection:
+Dynamic path variables (like `{name}`) and query parameters are automatically mapped and injected into the constructor parameters of the target `Page` component at runtime using reflection (including recursive instantiation of nested record types).
+
+```jatot
+package com.example.demo.routes.users._name;
+
+import io.jatot.html.Component;
+import io.jatot.html.Html;
+import com.example.demo.User;
+
+public record Page(User user) implements Component {
+    @Override
+    public Html render() {
+        return (
+            <h1>Hello, {this.user.name()}!</h1>
+        );
+    }
+```
+
+#### Nested Layouts (`Layout.jatot`)
+You can define layout components named `Layout.jatot` (producing a class named `Layout` implementing `Component`) in any routing directory. Layouts automatically wrap child page components:
+* Root Layout: `routes.Layout`
+* Section Layout: `routes.users.Layout`
+
+Layouts accept an `io.jatot.html.HtmlChildren` parameter to render dynamic nested child pages or nested sub-layouts:
+
+```jatot
+package com.example.demo.routes;
+
+import io.jatot.html.Component;
+import io.jatot.html.Html;
+import io.jatot.html.HtmlChildren;
+
+public record Layout(HtmlChildren children) implements Component {
+    @Override
+    public Html render() {
+        return (
+            <!DOCTYPE html>
+            <html lang="en">
+                <head>
+                    <title>Jatot Site</title>
+                </head>
+                <body>
+                    <div class="layout-container">
+                        {this.children}
+                    </div>
+                </body>
+            </html>
+        );
+    }
+}
+```
+
+#### Decoupled Server Data Loading (`Loader.jatot`)
+
+Jatot supports decoupled server-side data loading. If a class/record named `Loader` is found in the same package as the `Page` component, its `load(...)` method is executed first at request time to fetch data. The resolved model is then injected directly into the `Page` component's constructor:
+
+```jatot
+package com.example.demo.routes.users._name;
+
+import com.example.demo.User;
+
+public class Loader {
+    // Dynamic path/query variables are injected into method arguments automatically
+    public User load(String name) {
+        return new User(name, name.toLowerCase() + "@example.com");
+    }
+}
+```
+
+The returned object of type `User` is then passed to the constructor of `Page(User user)` dynamically.
+
+#### Static Site Generation & Prerendering (`@Prerender`)
+
+Annotate any `Page` component with `@Prerender` to enable Compile-Time Static Site Generation (SSG). 
+```jatot
+package com.example.demo.routes;
+
+import io.jatot.html.Component;
+import io.jatot.html.Html;
+import io.jatot.html.spring.Prerender;
+
+@Prerender
+public record Page() implements Component {
+    @Override
+    public Html render() {
+        return (
+            <h1>Static Landing Page</h1>
+        );
+    }
+}
+```
+* **Performance optimization**: Pages marked with `@Prerender` are compiled, rendered, and cached as static HTML templates once at startup. Subsequent visits stream the cached literals immediately, bypassing constructor instantiation and layout wrapping.
+
+### 6. Running the Demo Applications Locally
+
+The project includes two end-to-end demo applications under their respective modules. You can try them by running the following commands:
+
+#### Running the Routing & Layouts Demo
+Runs a clean, database-less application showing layouts, file routing, decoupled loaders, and SSG:
+```bash
+./gradlew :jatot-html-demo-routing:runRoutingDemo
+```
+* **Root landing page (SSG / File-based routes):** [http://localhost:8080/](http://localhost:8080/)
+* **Dynamic parameter page (File-based routes):** [http://localhost:8080/users/Alice](http://localhost:8080/users/Alice)
+* **Raw HTML Fragment rendering:** [http://localhost:8080/fragment](http://localhost:8080/fragment)
+
+#### Running the SQL & ORM Demo
+Runs a database-integrated application showing SQL prepared statement executions, virtual thread concurrency, and record ORM mapping:
+```bash
+./gradlew :jatot-html-demo-sql:runSqlDemo
+```
+* **Dynamic User DB parameter route:** [http://localhost:8080/users/Mel](http://localhost:8080/users/Mel) (reads from seeded database row)
+* **Database mapping ORM test endpoint:** [http://localhost:8080/](http://localhost:8080/)
+
 
 ## Build
 

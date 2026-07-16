@@ -279,6 +279,12 @@ public final class JatotLowerer implements ImportResolver {
                     lowerExpression(tern.elseBranch()),
                     tern.token()
             );
+        } else if (expr instanceof SqlExpr sql) {
+            List<Expression> loweredInterpolations = new ArrayList<>();
+            for (Expression param : sql.interpolations()) {
+                loweredInterpolations.add(lowerExpression(param));
+            }
+            return new SqlExpr(sql.query(), loweredInterpolations, sql.resultType(), sql.token());
         } else if (expr instanceof BinaryExpr bin) {
             if (bin.operator().type() == TokenType.NULL_COALESCING) {
                 // Lower left and right
@@ -704,6 +710,26 @@ public final class JatotLowerer implements ImportResolver {
                 elemType = new ResolvedType(symbolTable.getType("java.lang.Object"), false, List.of(), 0);
             }
             return new ResolvedType(symbolTable.getType("java.util.List"), true, List.of(elemType), 0);
+        } else if (expr instanceof SqlExpr sql) {
+            TypeInfo listInfo = symbolTable.getType("java.util.List");
+            if (sql.resultType().isPresent()) {
+                ResolvedType res = symbolTable.resolveTypeNode(sql.resultType().get(), this);
+                return new ResolvedType(listInfo, true, List.of(res), 0);
+            } else {
+                String trimmed = sql.query().trim().toUpperCase();
+                boolean isSelect = trimmed.startsWith("SELECT") || trimmed.startsWith("WITH") || trimmed.startsWith("SHOW") || trimmed.startsWith("DESCRIBE");
+                if (!isSelect) {
+                    TypeInfo intInfo = symbolTable.getType("int");
+                    return new ResolvedType(intInfo, true, List.of(), 0);
+                }
+                TypeInfo mapInfo = symbolTable.getType("java.util.Map");
+                TypeInfo stringInfo = symbolTable.getType("java.lang.String");
+                TypeInfo objectInfo = symbolTable.getType("java.lang.Object");
+                ResolvedType keyType = new ResolvedType(stringInfo, true, List.of(), 0);
+                ResolvedType valType = new ResolvedType(objectInfo, false, List.of(), 0);
+                ResolvedType mapType = new ResolvedType(mapInfo, true, List.of(keyType, valType), 0);
+                return new ResolvedType(listInfo, true, List.of(mapType), 0);
+            }
         } else if (expr instanceof NamedArgExpr named) {
             return getTypeOf(named.expression());
         }

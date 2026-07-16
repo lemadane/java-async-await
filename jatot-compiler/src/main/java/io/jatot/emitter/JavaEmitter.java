@@ -553,6 +553,36 @@ public final class JavaEmitter {
             return "super";
         } else if (expr instanceof TernaryExpr tern) {
             return "(" + emitExpression(tern.condition()) + " ? " + emitExpression(tern.thenBranch()) + " : " + emitExpression(tern.elseBranch()) + ")";
+        } else if (expr instanceof SqlExpr sql) {
+            String sqlString = "\"" + escapeJavaString(sql.query()) + "\"";
+            String paramList;
+            if (sql.interpolations().isEmpty()) {
+                paramList = "java.util.List.of()";
+            } else {
+                StringBuilder psb = new StringBuilder("java.util.List.of(");
+                for (int i = 0; i < sql.interpolations().size(); i++) {
+                    if (i > 0) psb.append(", ");
+                    psb.append(emitExpression(sql.interpolations().get(i)));
+                }
+                psb.append(")");
+                paramList = psb.toString();
+            }
+            String classLiteral = sql.resultType().isPresent() 
+                    ? emitType(sql.resultType().get()) + ".class"
+                    : "java.util.Map.class";
+            
+            String trimmed = sql.query().trim().toUpperCase();
+            boolean isSelect = trimmed.startsWith("SELECT") || trimmed.startsWith("WITH") || trimmed.startsWith("SHOW") || trimmed.startsWith("DESCRIBE");
+            String castType;
+            if (isSelect) {
+                castType = sql.resultType().isPresent() 
+                        ? "java.util.List<" + emitType(sql.resultType().get()) + ">"
+                        : "java.util.List<java.util.Map<String, Object>>";
+            } else {
+                castType = "Integer";
+            }
+            
+            return "((" + castType + ") io.jatot.sql.Sql.execute(" + sqlString + ", " + paramList + ", " + classLiteral + "))";
         } else if (expr instanceof BinaryExpr bin) {
             if (bin.operator().type() == io.jatot.lexer.TokenType.ASSIGN) {
                 return emitExpression(bin.left()) + " = " + emitExpression(bin.right());
