@@ -440,6 +440,16 @@ public final class SemanticAnalyzer implements ImportResolver {
                 return new ResolvedType(symbolTable.getType(currentClass.superclass().get()), true, List.of(), 0);
             }
             error(se.token(), "Cannot reference 'super' in this context.");
+        } else if (expr instanceof TernaryExpr tern) {
+            ResolvedType cond = checkExpression(tern.condition());
+            verifyCondition(cond, tern.token());
+            ResolvedType thenBranch = checkExpression(tern.thenBranch());
+            ResolvedType elseBranch = checkExpression(tern.elseBranch());
+            if (thenBranch != null && elseBranch != null) {
+                boolean isNonNull = thenBranch.isNonNull() && elseBranch.isNonNull();
+                return getCommonSupertype(thenBranch, elseBranch).withNonNull(isNonNull);
+            }
+            return new ResolvedType(symbolTable.getType("java.lang.Object"), false, List.of(), 0);
         } else if (expr instanceof BinaryExpr bin) {
             ResolvedType left = checkExpression(bin.left());
             ResolvedType right = checkExpression(bin.right());

@@ -303,4 +303,33 @@ class JatotEndToEndTest {
 
         runClass(binDir, "test.DefaultParamsMain");
     }
+
+    @Test
+    void testTernaryExpression() throws Exception {
+        String code = 
+            "package test;\n" +
+            "public class TernaryMain {\n" +
+            "    public static void main(String[] args) {\n" +
+            "        final condition = true;\n" +
+            "        final val = condition ? \"Zack\" : \"Guest\";\n" +
+            "        if (!val.equals(\"Zack\")) { throw new RuntimeException(\"Expected Zack\"); }\n" +
+            "\n" +
+            "        final nested = condition ? (false ? 1 : 2) : 3;\n" +
+            "        if (nested != 2) { throw new RuntimeException(\"Expected 2\"); }\n" +
+            "    }\n" +
+            "}\n";
+
+        Path tempDir = createTempDir();
+        Path srcDir = tempDir.resolve("src");
+        Path binDir = tempDir.resolve("bin");
+        Path genDir = tempDir.resolve("gen");
+        Files.createDirectories(srcDir);
+
+        Files.writeString(srcDir.resolve("TernaryMain.jatot"), code, StandardCharsets.UTF_8);
+
+        CompilationResult result = compile(srcDir, binDir, genDir);
+        assertTrue(result.successful(), "Compilation failed: " + result.diagnostics());
+
+        runClass(binDir, "test.TernaryMain");
+    }
 }

@@ -307,7 +307,13 @@ public boolean haveSameStatus(
 }
 ```
 
-> **Note:** `xor` and `xnor` are Boolean-only operators. A future integer bitwise XOR operator, if added, will use a different symbol or keyword to avoid ambiguity.
+### Ternary conditional operator
+
+Jatot supports standard Java ternary expressions (`condition ? thenExpr : elseExpr`). It is fully compatible with Java's standard ternary operator:
+
+```java
+final val = condition ? "Zack" : "Guest";
+```
 
 ### `if` expression
 

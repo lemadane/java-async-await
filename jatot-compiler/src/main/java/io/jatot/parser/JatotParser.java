@@ -779,6 +779,7 @@ public final class JatotParser {
     private enum Precedence {
         NONE,
         ASSIGNMENT,       // = += -=
+        TERNARY,          // ? :
         LAMBDA,           // ->
         NULL_COALESCING,  // ??
         OR,               // ||  or  nor
@@ -796,6 +797,7 @@ public final class JatotParser {
     private Precedence getPrecedence(TokenType type) {
         return switch (type) {
             case ASSIGN -> Precedence.ASSIGNMENT;
+            case QUESTION -> Precedence.TERNARY;
             case ARROW -> Precedence.LAMBDA;
             case NULL_COALESCING -> Precedence.NULL_COALESCING;
             case OR_OR, OR, NOR -> Precedence.OR;
@@ -1271,6 +1273,12 @@ public final class JatotParser {
                 Expression index = parseExpression(Precedence.NONE);
                 consume(TokenType.RIGHT_BRACKET, "Expected ']' after array index.");
                 yield new ArrayAccessExpr(left, index, op);
+            }
+            case QUESTION -> {
+                Expression thenBranch = parseExpression(Precedence.NONE);
+                consume(TokenType.COLON, "Expected ':' after ternary then-branch expression.");
+                Expression elseBranch = parseExpression(Precedence.TERNARY);
+                yield new TernaryExpr(left, thenBranch, elseBranch, op);
             }
             case ASSIGN -> {
                 // Right-associative

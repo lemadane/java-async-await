@@ -551,6 +551,8 @@ public final class JavaEmitter {
             return isInsideExtension ? "_this" : "this";
         } else if (expr instanceof SuperExpr) {
             return "super";
+        } else if (expr instanceof TernaryExpr tern) {
+            return "(" + emitExpression(tern.condition()) + " ? " + emitExpression(tern.thenBranch()) + " : " + emitExpression(tern.elseBranch()) + ")";
         } else if (expr instanceof BinaryExpr bin) {
             if (bin.operator().type() == io.jatot.lexer.TokenType.ASSIGN) {
                 return emitExpression(bin.left()) + " = " + emitExpression(bin.right());

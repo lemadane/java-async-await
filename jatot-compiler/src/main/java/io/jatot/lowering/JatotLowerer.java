@@ -272,6 +272,13 @@ public final class JatotLowerer implements ImportResolver {
     private Expression lowerExpression(Expression expr) {
         if (expr instanceof LiteralExpr || expr instanceof IdentifierExpr || expr instanceof ThisExpr || expr instanceof SuperExpr) {
             return expr;
+        } else if (expr instanceof TernaryExpr tern) {
+            return new TernaryExpr(
+                    lowerExpression(tern.condition()),
+                    lowerExpression(tern.thenBranch()),
+                    lowerExpression(tern.elseBranch()),
+                    tern.token()
+            );
         } else if (expr instanceof BinaryExpr bin) {
             if (bin.operator().type() == TokenType.NULL_COALESCING) {
                 // Lower left and right
@@ -605,6 +612,14 @@ public final class JatotLowerer implements ImportResolver {
             if (currentClass != null) return new ResolvedType(currentClass, true, List.of(), 0);
             ResolvedType type = lookupVarType("this");
             if (type != null) return type;
+        } else if (expr instanceof TernaryExpr tern) {
+            ResolvedType thenBranch = getTypeOf(tern.thenBranch());
+            ResolvedType elseBranch = getTypeOf(tern.elseBranch());
+            if (thenBranch != null && elseBranch != null) {
+                boolean isNonNull = thenBranch.isNonNull() && elseBranch.isNonNull();
+                return getCommonSupertype(thenBranch, elseBranch).withNonNull(isNonNull);
+            }
+            return new ResolvedType(symbolTable.getType("java.lang.Object"), false, List.of(), 0);
         } else if (expr instanceof BinaryExpr bin) {
             TokenType opType = bin.operator().type();
             if (opType == TokenType.EQUAL_EQUAL || opType == TokenType.BANG_EQUAL ||
