@@ -55,44 +55,6 @@ public class DashboardService {
 }
 ```
 
-## Project status
-
-Jatot is currently in the **compiler-foundation stage**.
-
-The repository already contains:
-
-- a Java 21 Gradle project
-- a **lexer** for Jatot keywords and operators
-- a **parser** producing a full abstract syntax tree
-- **semantic analysis** with symbol resolution and type checking
-- a **lowering** pass that transforms Jatot AST constructs to Java-compatible forms
-- a **Java source emitter** for transpilation output
-- source-file and diagnostic abstractions
-- a CLI with `check`, `tokens`, and `checkJatot` commands
-- a Virtual Thread runtime prototype for `async`/`await` lowering
-- JUnit 5 tests (including end-to-end compiler tests)
-- an example `.jatot` source file
-
-The compiler pipeline is functional from lexing through Java emission. Work continues on expanding language feature coverage and hardening the transpilation output.
-
-## Design goal
-
-A Java developer should be able to read Jatot immediately.
-
-Jatot keeps Java as the baseline:
-
-- classes, interfaces, records, enums, and annotations
-- packages and imports
-- constructors and method overloading
-- generics and Java collections
-- checked and unchecked exceptions
-- Java libraries and frameworks
-- JVM bytecode and the standard Java runtime
-
-Jatot adds focused syntax while preserving Java-shaped code.
-
-
-
 ## Confirmed language features
 
 ### Nullable and non-null reference types
@@ -1176,3 +1138,39 @@ You can test this implementation via the included demo:
 java -cp jatot-compiler/build/classes/java/main io.jatot.cli.JatotCli compile jatot-compiler/src/e2e/examples/JsonLiteralDemo.jatot -d jatot-compiler/build/classes/java/demo -cp jatot-json/build/classes/java/main --save-java
 java -cp jatot-compiler/build/classes/java/demo:jatot-json/build/classes/java/main JsonLiteralDemo
 ```
+
+## Project status
+
+Jatot is currently in the **compiler-foundation stage**.
+
+The repository already contains:
+
+- a Java 21 Gradle project
+- a **lexer** for Jatot keywords and operators
+- a **parser** producing a full abstract syntax tree
+- **semantic analysis** with symbol resolution and type checking
+- a **lowering** pass that transforms Jatot AST constructs to Java-compatible forms
+- a **Java source emitter** for transpilation output
+- source-file and diagnostic abstractions
+- a CLI with `check`, `tokens`, and `checkJatot` commands
+- a Virtual Thread runtime prototype for `async`/`await` lowering
+- JUnit 5 tests (including end-to-end compiler tests)
+- an example `.jatot` source file
+
+The compiler pipeline is functional from lexing through Java emission. Work continues on expanding language feature coverage and hardening the transpilation output.
+
+## Design goal
+
+A Java developer should be able to read Jatot immediately.
+
+Jatot keeps Java as the baseline:
+
+- classes, interfaces, records, enums, and annotations
+- packages and imports
+- constructors and method overloading
+- generics and Java collections
+- checked and unchecked exceptions
+- Java libraries and frameworks
+- JVM bytecode and the standard Java runtime
+
+Jatot adds focused syntax while preserving Java-shaped code.
