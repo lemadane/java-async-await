@@ -116,14 +116,72 @@ public final class SemanticAnalyzer implements ImportResolver {
         this.currentUnit = null;
     }
 
+    private boolean hasLoggingAnnotation(List<String> modifiers) {
+        if (modifiers == null) return false;
+        if (modifiers.contains("@jatot.logging.Logging")) {
+            return true;
+        }
+        if (modifiers.contains("@Logging")) {
+            if (currentUnit == null) return false;
+            return currentUnit.imports().contains("jatot.logging.Logging") || currentUnit.imports().contains("jatot.logging.*");
+        }
+        return false;
+    }
+
+    private void injectLoggerScope(List<String> modifiers, List<Member> members, Token errorToken) {
+        if (hasLoggingAnnotation(modifiers)) {
+            if (members.stream().anyMatch(m -> m instanceof FieldDecl fd && fd.name().equals("log"))) {
+                error(errorToken, "Cannot generate logging field 'log' because the type already declares a field named 'log'.");
+            }
+            TypeInfo loggerInfo = symbolTable.getType("jatot.logging.Logger");
+            if (loggerInfo == null) {
+                BaseTypeNode voidType = new BaseTypeNode("void", List.of(), false);
+                BaseTypeNode stringType = new BaseTypeNode("java.lang.String", List.of(), false);
+                BaseTypeNode throwableType = new BaseTypeNode("java.lang.Throwable", List.of(), false);
+                Parameter strParam = new Parameter(stringType, "msg", false, Optional.empty());
+                Parameter errParam = new Parameter(throwableType, "err", false, Optional.empty());
+                
+                SymbolTable.MethodInfo traceMethod = new SymbolTable.MethodInfo("trace", List.of("public"), voidType, List.of(strParam));
+                SymbolTable.MethodInfo traceErrMethod = new SymbolTable.MethodInfo("trace", List.of("public"), voidType, List.of(strParam, errParam));
+                SymbolTable.MethodInfo debugMethod = new SymbolTable.MethodInfo("debug", List.of("public"), voidType, List.of(strParam));
+                SymbolTable.MethodInfo debugErrMethod = new SymbolTable.MethodInfo("debug", List.of("public"), voidType, List.of(strParam, errParam));
+                SymbolTable.MethodInfo infoMethod = new SymbolTable.MethodInfo("info", List.of("public"), voidType, List.of(strParam));
+                SymbolTable.MethodInfo infoErrMethod = new SymbolTable.MethodInfo("info", List.of("public"), voidType, List.of(strParam, errParam));
+                SymbolTable.MethodInfo warnMethod = new SymbolTable.MethodInfo("warn", List.of("public"), voidType, List.of(strParam));
+                SymbolTable.MethodInfo warnErrMethod = new SymbolTable.MethodInfo("warn", List.of("public"), voidType, List.of(strParam, errParam));
+                SymbolTable.MethodInfo errorMethod = new SymbolTable.MethodInfo("error", List.of("public"), voidType, List.of(strParam));
+                SymbolTable.MethodInfo errorErrMethod = new SymbolTable.MethodInfo("error", List.of("public"), voidType, List.of(strParam, errParam));
+                
+                loggerInfo = new TypeInfo(
+                    "jatot.logging.Logger", false, false, false, false, Optional.empty(), List.of(),
+                    List.of(
+                        traceMethod, traceErrMethod,
+                        debugMethod, debugErrMethod,
+                        infoMethod, infoErrMethod,
+                        warnMethod, warnErrMethod,
+                        errorMethod, errorErrMethod
+                    ),
+                    List.of(), List.of()
+                );
+            }
+            ResolvedType logType = new ResolvedType(loggerInfo, true, List.of(), 0);
+            scopes.getFirst().put("log", new LocalVar("log", logType, true, false));
+        }
+    }
+
     private void analyzeClass(ClassDecl cd) {
         String pkg = currentUnit.packageName().orElse("");
         String fullName = pkg.isEmpty() ? cd.name() : pkg + "." + cd.name();
         this.currentClass = symbolTable.getType(fullName);
         
+        pushScope();
+        injectLoggerScope(cd.modifiers(), cd.members(), null);
+
         for (Member member : cd.members()) {
             analyzeMember(member);
         }
+        
+        popScope();
         this.currentClass = null;
     }
 
@@ -132,20 +190,33 @@ public final class SemanticAnalyzer implements ImportResolver {
         String fullName = pkg.isEmpty() ? rd.name() : pkg + "." + rd.name();
         this.currentClass = symbolTable.getType(fullName);
 
+        pushScope();
+        injectLoggerScope(rd.modifiers(), rd.members(), null);
+
         for (Member member : rd.members()) {
             analyzeMember(member);
         }
+        
+        popScope();
         this.currentClass = null;
     }
 
     private void analyzeInterface(InterfaceDecl id) {
+        if (hasLoggingAnnotation(id.modifiers())) {
+            error(null, "@Logging is not supported on interfaces.");
+        }
+
         String pkg = currentUnit.packageName().orElse("");
         String fullName = pkg.isEmpty() ? id.name() : pkg + "." + id.name();
         this.currentClass = symbolTable.getType(fullName);
 
+        pushScope(); // Interfaces don't get loggers, but we push scope for consistency if needed
+
         for (Member member : id.members()) {
             analyzeMember(member);
         }
+        
+        popScope();
         this.currentClass = null;
     }
 
@@ -154,9 +225,14 @@ public final class SemanticAnalyzer implements ImportResolver {
         String fullName = pkg.isEmpty() ? ed.name() : pkg + "." + ed.name();
         this.currentClass = symbolTable.getType(fullName);
 
+        pushScope();
+        injectLoggerScope(ed.modifiers(), ed.members(), null);
+
         for (Member member : ed.members()) {
             analyzeMember(member);
         }
+        
+        popScope();
         this.currentClass = null;
     }
 

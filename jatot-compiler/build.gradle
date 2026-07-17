@@ -155,3 +155,51 @@ tasks.register('runSymbolDemo', JavaExec) {
     dependsOn tasks.named('compileSymbolDemo')
 }
 
+
+tasks.register('compileLoggingDemo', JavaExec) {
+    group = 'build'
+    description = 'Compiles the standalone Logging demo application to Java.'
+    classpath = sourceSets.main.runtimeClasspath + project(':jatot-logging').sourceSets.main.runtimeClasspath
+    mainClass = 'io.jatot.cli.JatotCli'
+    
+    def classDir = new File(buildDirDir, 'classes/java/demo')
+    doFirst {
+        classDir.mkdirs()
+    }
+    
+    args 'compile', "${rootDirDir}/jatot-compiler/src/e2e/examples/LoggingDemo.jatot", '-d', "${buildDirDir}/classes/java/demo", '-cp', (sourceSets.main.runtimeClasspath + project(':jatot-logging').sourceSets.main.runtimeClasspath).asPath, '--save-java'
+    
+    dependsOn tasks.named('classes'), project(':jatot-logging').tasks.named('classes')
+}
+
+tasks.register('runLoggingDemo', JavaExec) {
+    group = 'verification'
+    description = 'Runs the standalone Logging demo application.'
+    classpath = files("${buildDirDir}/classes/java/demo") + sourceSets.main.runtimeClasspath + project(':jatot-logging').sourceSets.main.runtimeClasspath
+    mainClass = 'demo.LoggingDemo'
+    dependsOn tasks.named('compileLoggingDemo')
+}
+
+tasks.register('compileNamedArgsDemo', JavaExec) {
+    group = 'build'
+    description = 'Compiles the standalone Named Arguments demo application to Java.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.jatot.cli.JatotCli'
+    
+    def classDir = new File(buildDirDir, 'classes/java/demo')
+    doFirst {
+        classDir.mkdirs()
+    }
+    
+    args 'compile', "${rootDirDir}/jatot-compiler/src/e2e/examples/NamedArgsDemo.jatot", '-d', "${buildDirDir}/classes/java/demo", '-cp', sourceSets.main.runtimeClasspath.asPath, '--save-java'
+    
+    dependsOn tasks.named('classes')
+}
+
+tasks.register('runNamedArgsDemo', JavaExec) {
+    group = 'verification'
+    description = 'Runs the standalone Named Arguments demo application.'
+    classpath = files("${buildDirDir}/classes/java/demo") + sourceSets.main.runtimeClasspath
+    mainClass = 'demo.NamedArgsDemo'
+    dependsOn tasks.named('compileNamedArgsDemo')
+}

@@ -13,3 +13,6 @@ project(':jatot-html-demo-routing').projectDir = new File(settingsDir, 'jatot-co
 
 include 'jatot-html-demo-sql'
 project(':jatot-html-demo-sql').projectDir = new File(settingsDir, 'jatot-compiler/src/e2e/jatot-html-demo-sql')
+
+include 'jatot-logging'
+include 'jatot-logging-spring-boot-starter'

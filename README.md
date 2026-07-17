@@ -667,6 +667,47 @@ UUID currentTenantId = context.get(TENANT_ID);
 * Symbols **are not** UUIDs or persistent database primary keys. They should not automatically survive serialization.
 * The `symbol` word is not a reserved keyword and remains valid as an ordinary variable name.
 
+### Logging
+
+Jatot provides a native logging system integrated directly into the language via the `@Logging` annotation, without requiring Lombok, SLF4J, or any external bytecode manipulation.
+
+When you annotate a class, record, or enum with `@Logging`, the compiler automatically injects a static, immutable `log` field bound to that specific type.
+
+```jatot
+import jatot.logging.Logging;
+
+@Logging
+public class BookingService {
+    public Booking create(BookingRequest request) {
+        log.debug($"Creating booking for {request.customerName()}");
+
+        try {
+            Booking booking = save(request);
+            log.info($"Booking {booking.id()} was created");
+            return booking;
+        } catch (Exception exception) {
+            log.error($"Failed to create booking", exception);
+            throw exception;
+        }
+    }
+}
+```
+
+The underlying injected field is equivalent to:
+```java
+private static final jatot.logging.Logger log = jatot.logging.LogManager.getLogger(BookingService.class);
+```
+
+#### Spring Boot Integration
+
+A Spring Boot starter module is available to seamlessly integrate Jatot logging with your Spring environment:
+
+```groovy
+implementation 'io.jatot:jatot-logging-spring-boot-starter:1.0.0'
+```
+
+It maps Spring Boot profiles and active environments so that `jatot.logging` levels automatically align with your `application.yml` properties. In environments without Spring Boot, it seamlessly falls back to reading `jatot-logging.properties`.
+
 ## Java interoperability
 
 Java interoperability is a first-class requirement.
@@ -949,6 +990,21 @@ Runs a simple console application demonstrating unique symbol identity, global r
 ```bash
 ./gradlew :jatot-compiler:runSymbolDemo
 ```
+
+#### `@Logging` Demo
+
+Runs a simple console application demonstrating the natively injected `log` field, multiple log levels, and exception handling:
+```bash
+./gradlew :jatot-compiler:runLoggingDemo
+```
+
+#### Named Arguments & Default Parameters Demo
+
+Runs a simple console application demonstrating the use of parameter default values and named arguments in Jatot:
+```bash
+./gradlew :jatot-compiler:runNamedArgsDemo
+```
+
 ## Build
 
 Build with the included Gradle wrapper:
