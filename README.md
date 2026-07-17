@@ -1191,6 +1191,28 @@ Features will be added incrementally in this order:
     - Type inference and variable interpolation
     - Zero-overhead static allocations
 
+18. **Native HTML Templates & SSR** (Completed)
+    - Custom markup tags parsed into standard AST structures
+    - Automatic compilation down to dynamic `HtmlWriter` lambda outputs
+    - Static HTML block pre-rendering and `@Prerender` optimization
+
+19. **File-Based Routing & SSG** (Completed)
+    - Dynamic Spring-based package scans matching directory paths
+    - Automatic Layout hierarchies (`Layout.jatot`) wrapping children
+    - Data-decoupled routes using `Loader` class parameters
+
+20. **Identity-Based Symbols** (Completed)
+    - Collision-free metadata keys via `Symbol` and `SymbolMap`
+    - Scoped thread-safe global registry with type checks
+
+21. **Native SQL Templating** (Completed)
+    - Parameterized dynamic database queries (`sql<T>"""..."""`)
+    - Compile-time syntax checking and target Record mappings
+
+22. **Generator Functions** (Completed)
+    - Streamable lazy sequences using the `generator` method modifier
+    - Integration with `JatotGenerator` callback execution
+
 ## First implementation milestone
 
 The first visible Jatot feature will be local mutability declarations:
