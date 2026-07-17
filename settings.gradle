@@ -16,3 +16,5 @@ project(':jatot-html-demo-sql').projectDir = new File(settingsDir, 'jatot-compil
 
 include 'jatot-logging'
 include 'jatot-logging-spring-boot-starter'
+
+include 'jatot-json'

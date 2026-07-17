@@ -1268,7 +1268,12 @@ public final class JatotParser {
                     consume(TokenType.GREATER, "Expected '>' after type arguments.");
                 }
 
-                String memberName = consume(TokenType.IDENTIFIER, "Expected member name after '" + op.lexeme() + "'.").lexeme();
+                String memberName;
+                if (check(TokenType.CLASS)) {
+                    memberName = advance().lexeme();
+                } else {
+                    memberName = consume(TokenType.IDENTIFIER, "Expected member name after '" + op.lexeme() + "'.").lexeme();
+                }
 
                 if (match(TokenType.LEFT_PAREN)) {
                     List<Expression> arguments = parseCallArguments();

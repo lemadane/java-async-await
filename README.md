@@ -1214,3 +1214,57 @@ public class Main {
 ## Guiding principle
 
 > **Jatot should remove Java's accidental complexity without hiding the programmer's intention.**
+
+## JSON Standard Library (`jatot.json`)
+
+Jatot provides a native, zero-dependency JSON parser and stringifier through the `jatot-json` standard library module. This API brings JavaScript-like convenience but strictly enforces Java Record type safety, preventing common pitfalls with mutable JavaBeans and silent coercions.
+
+### Key Features
+- **Strictly Record-Oriented**: `Json.parse(...)` will *only* deserialize into Java Records, ensuring deterministic, immutable structures. It strictly rejects ordinary Java classes.
+- **Constructor Validation**: During deserialization, the record's canonical constructor is always invoked. Any assertions or data validations placed within the constructor run automatically on the parsed JSON!
+- **Zero-Dependency**: No Jackson, no Gson. It is built natively into Jatot, perfectly avoiding large shaded JAR issues.
+- **Deep Compatibility**: Supports primitives, `java.time.*` (ISO-8601), `java.util.UUID`, Enums, `Optional<T>`, generic lists/maps, and deeply nested generic records.
+- **Customizable**: Control serialization with `JsonOptions` and override property names via `@JsonName`.
+
+### Quick Start
+
+```java
+import jatot.json.Json;
+import java.util.UUID;
+import java.time.LocalDate;
+
+public record User(
+    UUID id, 
+    String firstName, 
+    String lastName,
+    LocalDate birthDate
+) {
+    public User {
+        // Will be executed when parsed from JSON!
+        if (firstName == null || firstName.isBlank()) {
+            throw new IllegalArgumentException("firstName cannot be blank");
+        }
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        User user = new User(UUID.randomUUID(), "Lemuel", "Adane", LocalDate.of(2000, 1, 1));
+        
+        // Serialize
+        String json = Json.stringify(user);
+        
+        // Parse directly into a strongly-typed record!
+        User parsedUser = Json.parse(json, User.class);
+        
+        System.out.println(parsedUser.firstName());
+    }
+}
+```
+
+You can test this implementation via the included demo:
+```bash
+# Compile and run the JSON Demo
+javac -cp jatot-json/build/classes/java/main jatot-compiler/src/e2e/examples/JsonDemo.java
+java -cp jatot-json/build/classes/java/main:jatot-compiler/src/e2e/examples JsonDemo
+```
