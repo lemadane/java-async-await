@@ -1177,6 +1177,20 @@ Features will be added incrementally in this order:
     - generated Java source directories
     - incremental compilation support
 
+15. **Native `@Logging` Support** (Completed)
+    - `jatot.logging` Standard Library
+    - `jatot.logging.spring.boot` Starter
+
+16. **Native JSON Support (`jatot.json`)** (Completed)
+    - Zero-dependency parser & mapper
+    - Record-oriented type-safe parsing
+    - Constructor validation automation
+
+17. **Native JSON Literals** (Completed)
+    - Inline JSON template strings (`json<Target>"""..."""`)
+    - Type inference and variable interpolation
+    - Zero-overhead static allocations
+
 ## First implementation milestone
 
 The first visible Jatot feature will be local mutability declarations:
