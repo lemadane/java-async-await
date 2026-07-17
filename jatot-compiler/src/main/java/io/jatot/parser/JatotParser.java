@@ -850,6 +850,17 @@ public final class JatotParser {
                         yield parseSqlExpression(templateToken, resultType);
                     }
                 }
+                if (token.lexeme().equals("json")) {
+                    Optional<TypeNode> resultType = Optional.empty();
+                    if (match(TokenType.LESS)) {
+                        resultType = Optional.of(parseType());
+                        consume(TokenType.GREATER, "Expected '>' after JSON result type.");
+                    }
+                    if (check(TokenType.TEMPLATE_STRING) || check(TokenType.STRING)) {
+                        Token templateToken = advance();
+                        yield parseJsonExpression(templateToken, resultType);
+                    }
+                }
                 // Could be start of lambda: x -> x
                 if (check(TokenType.ARROW)) {
                     advance(); // consume ->
@@ -1407,6 +1418,53 @@ public final class JatotParser {
         }
         
         return new SqlExpr(queryBuilder.toString(), interpolations, resultType, templateToken);
+    }
+
+        private Expression parseJsonExpression(Token templateToken, Optional<TypeNode> resultType) {
+        if (resultType.isEmpty()) {
+            throw error(templateToken, "JSON literals require a target Record type, e.g., json<User>\"\"...\"\"\"");
+        }
+
+        String content = templateToken.lexeme().substring(1, templateToken.lexeme().length() - 1);
+        if (templateToken.lexeme().startsWith("\"\"\"")) {
+            content = templateToken.lexeme().substring(3, templateToken.lexeme().length() - 3);
+        }
+
+        StringBuilder queryBuilder = new StringBuilder();
+        List<Expression> interpolations = new ArrayList<>();
+
+        int i = 0;
+        int len = content.length();
+        while (i < len) {
+            char c = content.charAt(i);
+            if (c == '$' && i + 1 < len && content.charAt(i + 1) == '{') {
+                int start = i + 2;
+                int depth = 1;
+                int end = -1;
+                for (int j = start; j < len; j++) {
+                    char nextC = content.charAt(j);
+                    if (nextC == '{') depth++;
+                    else if (nextC == '}') depth--;
+                    if (depth == 0) {
+                        end = j;
+                        break;
+                    }
+                }
+                if (end == -1) {
+                    throw error(templateToken, "Unterminated expression interpolation inside json template string.");
+                }
+                String exprStr = content.substring(start, end);
+                Expression parsedExpr = parseInlineExpression(exprStr, templateToken);
+                interpolations.add(parsedExpr);
+                queryBuilder.append("?");
+                i = end + 1;
+            } else {
+                queryBuilder.append(c);
+                i++;
+            }
+        }
+
+        return new JsonExpr(queryBuilder.toString(), interpolations, resultType.get(), templateToken);
     }
 
     private Expression parseInlineExpression(String exprStr, Token templateToken) {

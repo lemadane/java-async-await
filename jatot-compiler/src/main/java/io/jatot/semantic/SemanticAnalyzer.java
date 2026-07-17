@@ -802,6 +802,14 @@ public final class SemanticAnalyzer implements ImportResolver {
                 }
             }
             return new ResolvedType(listInfo, true, List.of(elemType), 0);
+        } else if (expr instanceof JsonExpr json) {
+            for (Expression param : json.interpolations()) {
+                checkExpression(param);
+            }
+            if (json.template() == null) {
+                error(json.token(), "JSON template literal must contain a string.");
+            }
+            return symbolTable.resolveTypeNode(json.resultType(), this);
         } else if (expr instanceof SqlExpr sql) {
             for (Expression param : sql.interpolations()) {
                 checkExpression(param);

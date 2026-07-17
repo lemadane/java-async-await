@@ -197,7 +197,7 @@ public interface Ast {
     record CatchClause(Parameter parameter, BlockStmt body) implements Node {}
 
     // Expressions
-    sealed interface Expression extends Node permits LiteralExpr, IdentifierExpr, ThisExpr, SuperExpr, BinaryExpr, UnaryExpr, MemberAccessExpr, MethodCallExpr, NewObjectExpr, NewArrayExpr, ArrayInitializerExpr, ArrayAccessExpr, LambdaExpr, AsyncExpr, AwaitExpr, IfExpr, TryExpr, LoopExpr, NamedArgExpr, MarkupExpr, TernaryExpr, SqlExpr, InterpolatedStringExpression {
+    sealed interface Expression extends Node permits LiteralExpr, IdentifierExpr, ThisExpr, SuperExpr, BinaryExpr, UnaryExpr, MemberAccessExpr, MethodCallExpr, NewObjectExpr, NewArrayExpr, ArrayInitializerExpr, ArrayAccessExpr, LambdaExpr, AsyncExpr, AwaitExpr, IfExpr, TryExpr, LoopExpr, NamedArgExpr, MarkupExpr, TernaryExpr, SqlExpr, JsonExpr, InterpolatedStringExpression {
         // Source location helper
         default Token token() { return null; }
     }
@@ -276,6 +276,13 @@ public interface Ast {
             String query,
             List<Expression> interpolations,
             Optional<TypeNode> resultType,
+            Token token
+    ) implements Expression {}
+
+    record JsonExpr(
+            String template,
+            List<Expression> interpolations,
+            TypeNode resultType,
             Token token
     ) implements Expression {}
 

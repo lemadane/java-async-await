@@ -1268,3 +1268,38 @@ You can test this implementation via the included demo:
 javac -cp jatot-json/build/classes/java/main jatot-compiler/src/e2e/examples/JsonDemo.java
 java -cp jatot-json/build/classes/java/main:jatot-compiler/src/e2e/examples JsonDemo
 ```
+
+### Native JSON Literals
+
+Jatot extends standard JSON support with language-level **Native JSON Literals**, allowing you to write JSON structures directly inline with string interpolation!
+
+This leverages Jatot's template string syntax (`json<Target>"""..."""`) and lowers directly into highly-optimized `jatot.json.Json.parse` calls at compile time.
+
+```jatot
+// 1. Define your strict target Record
+public record User(
+    String id,
+    String firstName,
+    String lastName
+) {}
+
+// 2. Write JSON natively!
+String inputId = "123e4567-e89b-12d3-a456-426614174000";
+String firstName = "Lemuel";
+
+User parsedUser = json<User>"""
+{
+    "id": "${inputId}",
+    "firstName": "${firstName.toUpperCase()}",
+    "lastName": "Adane"
+}
+""";
+```
+
+You can test this implementation via the included demo:
+```bash
+# Compile and run the JSON Literal Demo
+./gradlew :jatot-compiler:classes
+java -cp jatot-compiler/build/classes/java/main io.jatot.cli.JatotCli compile jatot-compiler/src/e2e/examples/JsonLiteralDemo.jatot -d jatot-compiler/build/classes/java/demo -cp jatot-json/build/classes/java/main --save-java
+java -cp jatot-compiler/build/classes/java/demo:jatot-json/build/classes/java/main JsonLiteralDemo
+```

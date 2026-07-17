@@ -553,6 +553,21 @@ public final class JavaEmitter {
             return "super";
         } else if (expr instanceof TernaryExpr tern) {
             return "(" + emitExpression(tern.condition()) + " ? " + emitExpression(tern.thenBranch()) + " : " + emitExpression(tern.elseBranch()) + ")";
+        } else if (expr instanceof JsonExpr json) {
+            StringBuilder sb = new StringBuilder();
+            String template = json.template();
+            String[] parts = template.split("\\?", -1);
+            sb.append("\"");
+            int j = 0;
+            for (int i = 0; i < parts.length; i++) {
+                sb.append(escapeJavaString(parts[i]));
+                if (i < parts.length - 1) {
+                    sb.append("\" + ").append(emitExpression(json.interpolations().get(j++))).append(" + \"");
+                }
+            }
+            sb.append("\"");
+            String classLiteral = emitType(json.resultType()) + ".class";
+            return "jatot.json.Json.parse(" + sb.toString() + ", " + classLiteral + ")";
         } else if (expr instanceof SqlExpr sql) {
             String sqlString = "\"" + escapeJavaString(sql.query()) + "\"";
             String paramList;
