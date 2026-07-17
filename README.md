@@ -614,6 +614,59 @@ final res2 = calculate(offset: 5, base: 10); // 10 * 2 + 5 = 25
 final res3 = calculate(10, multiplier: 3); // 10 * 3 + 1 = 31
 ```
 
+### Symbols
+
+Jatot provides a JavaScript-like `Symbol` type in the standard library (`jatot.lang.Symbol<T>`) to serve as unique, identity-based keys for metadata, component contexts, and registries without the risk of collisions.
+
+#### Core Semantics
+1. **Identity-Based Equality**: Two unique symbols are never equal, even if they share the same description.
+2. **Optional Descriptions**: Descriptions exist only for debugging and `toString()` representation.
+3. **Generic Type Safety**: Symbols define the type of value they are associated with (e.g., `Symbol<UUID>`).
+4. **SymbolMap**: A typed container mapping `Symbol<T>` to `T` with full compile-time type safety.
+5. **Thread-Safe Global Registry**: Symbols can be registered globally via `Symbol.forKey("key")`.
+
+#### Unique Symbols
+A unique symbol is created with `create(...)`. Identical descriptions still produce completely separate symbol objects.
+
+```jatot
+static final Symbol<User> CURRENT_USER = Symbol.create("currentUser");
+static final Symbol<UUID> TENANT_ID = Symbol.create("tenantId");
+
+Symbol<String> first = Symbol.create("name");
+Symbol<String> second = Symbol.create("name");
+
+assert first != second;
+```
+
+#### Global Registered Symbols
+If you need a shared symbol across components by a string key, use the global registry:
+
+```jatot
+Symbol<Object> first = Symbol.forKey("application.user");
+Symbol<Object> second = Symbol.forKey("application.user");
+
+assert first == second;
+```
+The registry is thread-safe and scoped to the class loader. `Symbol.keyFor(...)` retrieves a registered symbol's registry key.
+
+#### Typed Metadata using SymbolMap
+To avoid String-based key collisions in metadata contexts, use `SymbolMap`:
+
+```jatot
+SymbolMap context = new SymbolMap();
+
+context.put(CURRENT_USER, user);
+context.put(TENANT_ID, tenantId);
+
+User currentUser = context.get(CURRENT_USER);
+UUID currentTenantId = context.get(TENANT_ID);
+```
+
+#### Best Practices
+* Symbols **are** excellent for cross-module metadata, plugin extensions, framework context, and request attributes.
+* Symbols **are not** UUIDs or persistent database primary keys. They should not automatically survive serialization.
+* The `symbol` word is not a reserved keyword and remains valid as an ordinary variable name.
+
 ## Java interoperability
 
 Java interoperability is a first-class requirement.
@@ -891,7 +944,11 @@ Runs a database-integrated application showing SQL prepared statement executions
 * **Dynamic User DB parameter route:** [http://localhost:8080/users/Mel](http://localhost:8080/users/Mel) (reads from seeded database row)
 * **Database mapping ORM test endpoint:** [http://localhost:8080/](http://localhost:8080/)
 
-
+#### Running the Symbols Demo
+Runs a simple console application demonstrating unique symbol identity, global registry, and `SymbolMap` usage:
+```bash
+./gradlew :jatot-compiler:runSymbolDemo
+```
 ## Build
 
 Build with the included Gradle wrapper:

@@ -130,3 +130,28 @@ tasks.register('runStringInterpolationTest', JavaExec) {
     mainClass = 'test.StringInterpolationTest'
     dependsOn tasks.named('compileStringInterpolationTest')
 }
+
+tasks.register('compileSymbolDemo', JavaExec) {
+    group = 'build'
+    description = 'Compiles the standalone Symbol demo application to Java.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.jatot.cli.JatotCli'
+    
+    def classDir = new File(buildDirDir, 'classes/java/demo')
+    doFirst {
+        classDir.mkdirs()
+    }
+    
+    args 'compile', "${rootDirDir}/jatot-compiler/src/e2e/examples/SymbolDemo.jatot", '-d', "${buildDirDir}/classes/java/demo", '-cp', sourceSets.main.runtimeClasspath.asPath, '--save-java'
+    
+    dependsOn tasks.named('classes')
+}
+
+tasks.register('runSymbolDemo', JavaExec) {
+    group = 'verification'
+    description = 'Runs the standalone Symbol demo application.'
+    classpath = files("${buildDirDir}/classes/java/demo") + sourceSets.main.runtimeClasspath
+    mainClass = 'demo.SymbolDemo'
+    dependsOn tasks.named('compileSymbolDemo')
+}
+
