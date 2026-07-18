@@ -55,9 +55,10 @@ public class DashboardService {
 }
 ```
 
-## Confirmed language features
+## Confirmed language features (that Java lacks)
 
-### Nullable and non-null reference types
+
+### 1. Nullable and non-null reference types
 
 Reference types are nullable by default:
 
@@ -81,7 +82,7 @@ List<Integer>! numbers = new ArrayList<>();
 int[]! values = {};
 ```
 
-### Optional chaining
+### 2. Optional chaining
 
 ```java
 final city = customer.address()?.city();
@@ -89,7 +90,7 @@ final city = customer.address()?.city();
 
 If a nullable receiver is `null`, the rest of the optional chain is skipped and the expression evaluates to `null`.
 
-### Null coalescing
+### 3. Null coalescing
 
 ```java
 final city = customer.address()?.city() ?? "Unknown";
@@ -97,7 +98,7 @@ final city = customer.address()?.city() ?? "Unknown";
 
 The right-hand expression is evaluated only when the left-hand value is `null`.
 
-### Immutable and mutable locals
+### 4. Immutable and mutable locals
 
 Use `final` for an immutable local binding:
 
@@ -114,7 +115,7 @@ attempts++;
 
 Jatot does not use `final var`.
 
-### Immutable parameters
+### 5. Immutable parameters
 
 Method and constructor parameters are implicitly immutable bindings:
 
@@ -127,7 +128,7 @@ public void rename(String! name) {
 
 Reassigning `name` is a compile-time error. The referenced object may still be mutable.
 
-### Explicit `this.`
+### 6. Explicit `this.`
 
 Instance field access and instance method calls inside a class must use `this.`:
 
@@ -144,7 +145,7 @@ customer.name();
 order.calculateTotal();
 ```
 
-### Boolean operators
+### 7. Textual boolean operators
 
 Jatot supports seven boolean operators in both textual and symbolic form.
 
@@ -271,15 +272,12 @@ public boolean haveSameStatus(
 }
 ```
 
-### Ternary conditional operator
-
-Jatot supports standard Java ternary expressions (`condition ? thenExpr : elseExpr`). It is fully compatible with Java's standard ternary operator:
 
 ```java
 final val = condition ? "Zack" : "Guest";
 ```
 
-### `if` expression
+### 8. `if` expression
 
 ```java
 final status = if (order.isPaid()) {
@@ -291,7 +289,7 @@ final status = if (order.isPaid()) {
 
 Every reachable branch must yield a compatible result.
 
-### `try` expression
+### 9. `try` expression
 
 ```java
 final port = try {
@@ -301,7 +299,7 @@ final port = try {
 };
 ```
 
-### `for` expression
+### 10. `for` expression
 
 Jatot uses Java's existing `for` keyword. It does not introduce `foreach`.
 
@@ -323,7 +321,7 @@ final numbers = for (var i = 0; i < 10; i++) {
 
 Each executed `yield` contributes an element to the resulting collection.
 
-### `while` and `do-while` expressions
+### 11. `while` and `do-while` expressions
 
 ```java
 final values = while (iterator.hasNext()) {
@@ -337,7 +335,7 @@ final values = do {
 } while (this.hasMore());
 ```
 
-### Class extensions
+### 12. Class extensions
 
 Jatot can extend an existing Java or Jatot class without changing the original class or creating a subclass:
 
@@ -357,7 +355,7 @@ final normalizedName = name.normalized();
 
 Class extensions are expected to lower to ordinary static Java helper methods. Real instance members take precedence over extension members.
 
-### Virtual Thread concurrency
+### 13. Virtual Thread concurrency
 
 Ordinary Java and Jatot methods remain synchronous. Concurrency is requested at the call site:
 
@@ -395,7 +393,7 @@ final customer =
     this.customerService.findRequired(id);
 ```
 
-### Generator functions
+### 14. Generator functions
 
 Jatot supports generator functions to produce lazy, streamable sequences of values.
 * Declare the method with the `generator` modifier.
@@ -417,7 +415,8 @@ for (int val : numbers(5)) {
 }
 ```
 
-### Direct SQL Query Templating
+
+### 15. Direct SQL Query Templating
 
 Jatot includes native support for SQL template query expressions (using backticks) that automatically parameterize dynamic variables to prevent SQL injection and map results directly to Java record types:
 
@@ -436,7 +435,8 @@ Jatot includes native support for SQL template query expressions (using backtick
 
 Dynamic interpolation expressions (like `{name}`) are parsed and validated by the compiler, translating the template query directly into standard prepared statement execution at runtime.
 
-#### Compile-Time Query Syntax Checking
+
+### 16. Compile-Time SQL Query Syntax Checking
 
 The compiler automatically parses and validates the SQL syntax of all query literals at compile-time:
 * **Mismatched delimiters**: Detects unclosed quotes or mismatched parentheses in the SQL text.
@@ -444,14 +444,16 @@ The compiler automatically parses and validates the SQL syntax of all query lite
 
 Any syntax mistakes will immediately halt compilation and raise detailed compiler errors before code is deployed.
 
-#### Zero-Boilerplate Record Mapping (ORM)
+
+### 17. Zero-Boilerplate S  SQL to Record Mapping (ORM)
 
 The runtime automatically maps database result set columns to Java records using constructor reflection:
 * **Name-Based Matching**: Maps columns directly to record constructor parameters with matching names (case-insensitive).
 * **Positional Fallback**: If compile parameter reflection names are unavailable (e.g., compiled without the `-parameters` flag) or a name match fails, it maps columns to parameters sequentially by select position.
 * **Recursive Nested Mapping**: If a record constructor contains a nested record type (e.g., `User(String name, Contact contact)` where `Contact` is `record Contact(String email)`), the mapper recursively instantiates the nested record matching the query columns.
 
-#### Synchronous Query Execution for Virtual Threads
+
+### 18. Synchronous SQL Query Execution for Virtual Threads
 
 Because Jatot has native compiler-level support for **Virtual Threads (`async`/`await`)**, database query literals can be executed synchronously in lightweight thread contexts without blocking carrier system threads:
 
@@ -463,7 +465,8 @@ final users = await usersFuture;
 
 When a query blocks on database I/O, the JVM automatically unmounts the virtual thread, enabling high-performance concurrent database operations with standard, simple synchronous code.
 
-### Interpolated Strings
+
+### 19. Interpolated Strings
 
 Jatot includes native support for type-safe, evaluated string interpolation expressions using the `$"` syntax. The same delimiter seamlessly supports both single-line and multiline string expressions.
 
@@ -503,7 +506,8 @@ Jatot includes native support for type-safe, evaluated string interpolation expr
 * **Null Handling**: If an evaluated expression resolves to `null`, it renders as the string `"null"` (equivalent to `String.valueOf(value)`). No `NullPointerException` is thrown from the string mapping itself.
 * **Type Behavior**: The entire interpolated string expression resolves to type `java.lang.String`. Void-returning expressions are rejected at compile-time.
 
-### Native Server-Side HTML Components
+
+### 20. Native Server-Side HTML Components
 
 Jatot includes native support for server-side HTML templating via JSX-like markup tags directly integrated into the language.
 
@@ -536,7 +540,13 @@ public record UserCard(User user) implements Component {
 }
 ```
 
-### Annotations
+#### Ternary conditional operator for ReactJS-like HTML template control flow
+
+Jatot supports standard Java ternary expressions (`{condition ? thenExpr : elseExpr}`). It is fully compatible with Java's standard ternary operator:
+
+
+
+### 21. Native Annotations and 3rd Party Annotation Support
 
 Jatot fully supports standard Java and framework annotations (such as Spring Boot's `@RestController`, `@Autowired`, etc.) on classes, fields, methods, constructors, and method parameters:
 
@@ -555,7 +565,7 @@ public class ProductController {
 }
 ```
 
-### Named Arguments & Parameter Default Values
+### 22. Named Arguments & Parameter Default Values
 
 Method and constructor parameters can define default values, which can then be invoked optionally or using named arguments.
 
@@ -578,7 +588,7 @@ final res2 = calculate(offset: 5, base: 10); // 10 * 2 + 5 = 25
 final res3 = calculate(10, multiplier: 3); // 10 * 3 + 1 = 31
 ```
 
-### Symbols
+### 23. JS-like Symbols
 
 Jatot provides a JavaScript-like `Symbol` type in the standard library (`jatot.lang.Symbol<T>`) to serve as unique, identity-based keys for metadata, component contexts, and registries without the risk of collisions.
 
@@ -631,7 +641,8 @@ UUID currentTenantId = context.get(TENANT_ID);
 * Symbols **are not** UUIDs or persistent database primary keys. They should not automatically survive serialization.
 * The `symbol` word is not a reserved keyword and remains valid as an ordinary variable name.
 
-### Logging
+
+### 24. @Logging Annotation
 
 Jatot provides a native logging system integrated directly into the language via the `@Logging` annotation, without requiring Lombok, SLF4J, or any external bytecode manipulation.
 
@@ -662,7 +673,7 @@ The underlying injected field is equivalent to:
 private static final jatot.logging.Logger log = jatot.logging.LogManager.getLogger(BookingService.class);
 ```
 
-#### Spring Boot Integration
+#### Logging Spring Boot Integration
 
 A Spring Boot starter module is available to seamlessly integrate Jatot logging with your Spring environment:
 
@@ -671,6 +682,8 @@ implementation 'io.jatot:jatot-logging-spring-boot-starter:1.0.0'
 ```
 
 It maps Spring Boot profiles and active environments so that `jatot.logging` levels automatically align with your `application.yml` properties. In environments without Spring Boot, it seamlessly falls back to reading `jatot-logging.properties`.
+
+
 
 ## Java interoperability
 
@@ -689,12 +702,14 @@ The target guarantees are:
 9. Mixed Java and Jatot projects produce normal JAR files.
 10. Frameworks should not need to know whether a class originated from Java or Jatot.
 
+
 ## Requirements
 
 - JDK 21
 - Gradle 9.6.1 or a compatible Gradle installation
 
 The build uses a Java 21 toolchain and compiles with `--release 21`.
+
 
 ## Using Jatot in Your Project
 
@@ -1012,18 +1027,18 @@ jatot <check|tokens> <source.jatot>
 At this stage, `check` performs lexical validation only.
 
 
-## First implementation milestone
+
+## Mutability declaration
 
 The first visible Jatot feature will be local mutability declarations:
 
 ```java
 public class Main {
     public static void main(String[] args) {
-        final message = "Hello from Jatot";
-        var count = 1;
-
+        final message = "Hello from Jatot"; // 'final' and not 'final var' 
+                                            // for immutable variable
+        var count = 1;  // 'var' for mutable variable
         count++;
-
         System.out.println(message);
         System.out.println(count);
     }
@@ -1046,9 +1061,6 @@ public class Main {
 }
 ```
 
-## Guiding principle
-
-> **Jatot should remove Java's accidental complexity without hiding the programmer's intention.**
 
 ## JSON Standard Library (`jatot.json`)
 
@@ -1060,6 +1072,34 @@ Jatot provides a native, zero-dependency JSON parser and stringifier through the
 - **Zero-Dependency**: No Jackson, no Gson. It is built natively into Jatot, perfectly avoiding large shaded JAR issues.
 - **Deep Compatibility**: Supports primitives, `java.time.*` (ISO-8601), `java.util.UUID`, Enums, `Optional<T>`, generic lists/maps, and deeply nested generic records.
 - **Customizable**: Control serialization with `JsonOptions` and override property names via `@JsonName`.
+
+
+## Native JSON Literals
+
+Jatot extends standard JSON support with language-level **Native JSON Literals**, allowing you to write JSON structures directly inline with string interpolation!
+
+This leverages Jatot's template string syntax (`json<Target>"""..."""`) and lowers directly into highly-optimized `jatot.json.Json.parse` calls at compile time.
+
+```jatot
+// 1. Define your strict target Record
+public record User(
+    String id,
+    String firstName,
+    String lastName
+) {}
+
+// 2. Write JSON natively!
+String inputId = "123e4567-e89b-12d3-a456-426614174000";
+String firstName = "Lemuel";
+
+User parsedUser = json<User>"""
+{
+    "id": "${inputId}",
+    "firstName": "${firstName.toUpperCase()}",
+    "lastName": "Adane"
+}
+""";
+```
 
 ### Quick Start
 
@@ -1104,32 +1144,6 @@ javac -cp jatot-json/build/classes/java/main jatot-compiler/src/e2e/examples/Jso
 java -cp jatot-json/build/classes/java/main:jatot-compiler/src/e2e/examples JsonDemo
 ```
 
-### Native JSON Literals
-
-Jatot extends standard JSON support with language-level **Native JSON Literals**, allowing you to write JSON structures directly inline with string interpolation!
-
-This leverages Jatot's template string syntax (`json<Target>"""..."""`) and lowers directly into highly-optimized `jatot.json.Json.parse` calls at compile time.
-
-```jatot
-// 1. Define your strict target Record
-public record User(
-    String id,
-    String firstName,
-    String lastName
-) {}
-
-// 2. Write JSON natively!
-String inputId = "123e4567-e89b-12d3-a456-426614174000";
-String firstName = "Lemuel";
-
-User parsedUser = json<User>"""
-{
-    "id": "${inputId}",
-    "firstName": "${firstName.toUpperCase()}",
-    "lastName": "Adane"
-}
-""";
-```
 
 You can test this implementation via the included demo:
 ```bash
@@ -1174,3 +1188,108 @@ Jatot keeps Java as the baseline:
 - JVM bytecode and the standard Java runtime
 
 Jatot adds focused syntax while preserving Java-shaped code.
+
+## Guiding principle
+
+> **Jatot should remove Java's accidental complexity without hiding the programmer's intention.**
+
+## Slugs (`jatot.web`)
+
+Java does not provide a built-in slug type or standard slugification utility. Developers often have to use third-party libraries or build custom logic combining `Normalizer`, regular expressions, and locales. Jatot fills this gap by providing a standardized, immutable value type: `jatot.web.Slug`.
+
+### Basic Example
+
+```jatot
+import jatot.web.Slug;
+
+Slug slug = Slug.from("Aircon Cleaning Services");
+System.out.println(slug);
+```
+
+Output:
+```text
+aircon-cleaning-services
+```
+
+### Generation vs. Parsing
+
+Jatot makes an important distinction between generating a slug from arbitrary input text versus parsing/validating a value expected to already be a canonical slug.
+
+1. **Generation (`Slug.from`)**:
+   - Converts arbitrary user input into a canonical slug format (e.g. lowercasing, resolving diacritics, replacing invalid character runs with separators, collapsing and trimming separators, and enforcing length bounds).
+   ```jatot
+   Slug slug = Slug.from("Café Déjà Vu"); // cafe-deja-vu
+   ```
+2. **Parsing (`Slug.parse`)**:
+   - Validates that the input is *already* in a canonical, normalized slug format. It does not perform any corrections, lowercasing, or transformations, and will throw an `IllegalArgumentException` for non-canonical input.
+   ```jatot
+   Slug slug = Slug.parse("cafe-deja-vu"); // Ok
+   Slug.parse("Café Déjà Vu"); // Throws IllegalArgumentException: Invalid slug
+   ```
+3. **Checking (`Slug.isValid`)**:
+   - Validates that a string is a valid canonical slug without throwing an exception, returning a `boolean`.
+   ```jatot
+   boolean valid = Slug.isValid("cafe-deja-vu"); // true
+   boolean invalid = Slug.isValid("Café Déjà Vu"); // false
+   ```
+
+### Core Characteristics & Rules
+
+- **Immutability**: `Slug` is a `final` class with an immutable internal state. Modifying operations like `append(...)` return a new `Slug` instance, leaving the original unchanged.
+- **Locale Neutrality**: Converting characters to lowercase strictly uses `Locale.ROOT` to ensure deterministic slugs across servers with different machine locales.
+- **Value Semantics**: Unlike `Symbol`, slugs are compared by value. Two slugs containing the same canonical value are equal and share the same hash code.
+- **No Database Uniqueness**: Slugs represent a value format and do not guarantee uniqueness on a database. Handlers, repositories, or services must enforce tenant or globally unique suffixes if required.
+- **No URL Encoding**: Slugs are path-safe segment identifiers, not URL encoders. Special URL escaping/building should be handled separately.
+
+### Character Policies
+
+The standard library supports two policies via `SlugCharacterPolicy`:
+
+1. **ASCII (Default)**:
+   - Restricts characters strictly to `a-z`, `0-9`, and the configured separator.
+   - Diacritics and combining marks are stripped where possible after Unicode `NFD` decomposition.
+   ```jatot
+   Slug slug = Slug.from("Café Déjà Vu"); // cafe-deja-vu
+   ```
+
+2. **UNICODE**:
+   - Preserves Unicode letter and digit symbols while transforming spaces and punctuation to separators.
+   ```jatot
+   Slug slug = Slug.from(
+       "東京 レストラン",
+       SlugOptions.builder()
+           .characterPolicy(SlugCharacterPolicy.UNICODE)
+           .build()
+   ); // 東京-レストラン
+   ```
+
+### Domain Model & API Integrations
+
+Using `Slug` inside records or domain entities provides strict type safety over raw strings:
+
+```jatot
+record Service(
+    UUID id,
+    String name,
+    Slug slug
+) {}
+```
+
+### Append Example
+
+You can combine slugs cleanly:
+
+```jatot
+Slug serviceSlug = Slug.from("Home Services")
+        .append("Aircon Cleaning");
+System.out.println(serviceSlug); // home-services-aircon-cleaning
+```
+
+You can test this implementation via the included demo:
+```bash
+# Compile and run the Slug Demo
+./gradlew :jatot-compiler:runSlugDemo
+```
+
+
+
