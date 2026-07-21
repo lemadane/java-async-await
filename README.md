@@ -1,4 +1,4 @@
-# Java Virtual Thread Async/Await Concurrency Library (`vt-async-await`)
+# Java Virtual Thread Async/Await Concurrency Library
 
 A production-ready, framework-neutral Java library providing virtual-thread `async`/`await` concurrency primitives for standard Java 21+ applications.
 
@@ -51,17 +51,9 @@ dependencies {
 </dependency>
 ```
 
-### Spring Boot Starter
-
-```groovy
-dependencies {
-    implementation 'io.lemonade:vt-async-await-spring-boot-starter:0.1.0-alpha.1'
-}
-```
-
 ---
 
-## Quick Start
+## Quick Start (Plain Java)
 
 ```java
 import static io.lemonade.vtasyncawait.VT.async;
@@ -72,7 +64,7 @@ import io.lemonade.vtasyncawait.Task;
 public class CustomerDashboard {
 
     public Dashboard loadCustomerDashboard(String id) {
-        // Immediate submission on virtual threads
+        // Immediate parallel submission on virtual threads
         Task<Customer> customerTask = async(() -> customerService.findRequired(id));
         Task<List<Order>> ordersTask = async(() -> orderService.findForCustomer(id));
 
@@ -87,12 +79,157 @@ public class CustomerDashboard {
 
 ---
 
-## Parallel Operations
+## Using in Spring Boot Applications
 
+### Step 1: Add Spring Boot Starter Dependency
+
+**Gradle (Groovy):**
+```groovy
+dependencies {
+    implementation 'io.lemonade:vt-async-await-spring-boot-starter:0.1.0-alpha.1'
+}
+```
+
+**Maven (`pom.xml`):**
+```xml
+<dependency>
+    <groupId>io.lemonade</groupId>
+    <artifactId>vt-async-await-spring-boot-starter</artifactId>
+    <version>0.1.0-alpha.1</version>
+</dependency>
+```
+
+---
+
+### Step 2: Configure Properties (`application.properties` or `application.yml`)
+
+```properties
+vt.concurrent.enabled=true
+vt.concurrent.thread-name-prefix=booking-task-
+```
+
+---
+
+### Step 3: Inject `AsyncRuntime` into Spring Components
+
+The starter automatically provides an `AsyncRuntime` bean in the application context.
+
+#### Spring `@Service` Example:
+
+```java
+package com.example.service;
+
+import io.lemonade.vtasyncawait.AsyncRuntime;
+import io.lemonade.vtasyncawait.Task;
+import io.lemonade.vtasyncawait.TaskScope;
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+public class DashboardService {
+
+    private final AsyncRuntime asyncRuntime;
+    private final CustomerClient customerClient;
+    private final OrderClient orderClient;
+
+    public DashboardService(AsyncRuntime asyncRuntime, 
+                            CustomerClient customerClient, 
+                            OrderClient orderClient) {
+        this.asyncRuntime = asyncRuntime;
+        this.customerClient = customerClient;
+        this.orderClient = orderClient;
+    }
+
+    public DashboardResponse getDashboard(String customerId) {
+        // Use a structured scope to bind task execution to this block
+        try (TaskScope scope = asyncRuntime.scope()) {
+            Task<CustomerDto> customerTask = scope.async("load-customer", 
+                    () -> customerClient.fetchCustomer(customerId));
+            
+            Task<List<OrderDto>> ordersTask = scope.async("load-orders", 
+                    () -> orderClient.fetchOrders(customerId));
+
+            // Await both results concurrently
+            CustomerDto customer = scope.await(customerTask);
+            List<OrderDto> orders = scope.await(ordersTask);
+
+            return new DashboardResponse(customer, orders);
+        }
+    }
+}
+```
+
+#### Spring `@RestController` Example:
+
+```java
+package com.example.controller;
+
+import com.example.service.DashboardService;
+import com.example.dto.DashboardResponse;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/dashboard")
+public class DashboardController {
+
+    private final DashboardService dashboardService;
+
+    public DashboardController(DashboardService dashboardService) {
+        this.dashboardService = dashboardService;
+    }
+
+    @GetMapping("/{customerId}")
+    public DashboardResponse getDashboard(@PathVariable String customerId) {
+        return dashboardService.getDashboard(customerId);
+    }
+}
+```
+
+---
+
+### Step 4: Configure Thread Context Propagation (MDC / Tracing)
+
+In Spring Boot, log trace IDs and MDC context are often set on the request handling thread. Configure a `@Bean TaskDecorator` to propagate caller thread context to virtual threads automatically:
+
+```java
+package com.example.config;
+
+import io.lemonade.vtasyncawait.TaskDecorator;
+import org.slf4j.MDC;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import java.util.Map;
+
+@Configuration
+public class AsyncConfig {
+
+    @Bean
+    public TaskDecorator mdcTaskDecorator() {
+        return operation -> {
+            Map<String, String> contextMap = MDC.getCopyOfContextMap();
+            return () -> {
+                if (contextMap != null) {
+                    MDC.setContextMap(contextMap);
+                }
+                try {
+                    operation.run();
+                } finally {
+                    MDC.clear();
+                }
+            };
+        };
+    }
+}
+```
+
+---
+
+## Features & Usage
+
+### Parallel Operations
 Every task submitted via `async(...)` begins execution immediately on a new virtual thread:
 
 ```java
-// Both operations start in parallel before the first await
 Task<Customer> customerTask = async(() -> customerService.findRequired(id));
 Task<List<Order>> ordersTask = async(() -> orderService.findForCustomer(id));
 
@@ -100,30 +237,14 @@ Customer customer = await(customerTask);
 List<Order> orders = await(ordersTask);
 ```
 
-> [!WARNING]
-> Immediate sequential calls like `VT.await(VT.async(() -> service.load()))` provide no concurrency benefit. Run asynchronous operations in parallel before calling `await`.
-
----
-
-## Named Tasks
-
-Give tasks logical names for improved thread dumps, debugging, profiling, and diagnostics:
+### Named Tasks
+Logical naming helps with thread dumps, profiling, and diagnostics:
 
 ```java
-Task<Customer> customerTask = async(
-        "load-customer",
-        () -> customerService.findRequired(id)
-);
+Task<Customer> customerTask = async("load-customer", () -> customerService.findRequired(id));
 ```
 
-The underlying virtual thread will be named `vt-task-load-customer-1`.
-
----
-
-## Timeouts
-
-Set maximum wait durations when awaiting tasks:
-
+### Timeouts
 ```java
 try {
     Customer customer = VT.await(customerTask, Duration.ofSeconds(2));
@@ -132,51 +253,10 @@ try {
 }
 ```
 
-> [!NOTE]
-> An await timeout throws `TaskTimeoutException` but does **not** automatically cancel the running task unless explicitly requested.
-
----
-
-## Cancellation
-
-Cancel tasks to interrupt their underlying virtual threads:
-
+### Cancellation
 ```java
 Task<Customer> customerTask = async(() -> customerService.findRequired(id));
-
-// Cancel execution
 boolean cancelled = customerTask.cancel();
-
-// Awaiting a cancelled task throws java.util.concurrent.CancellationException
-```
-
----
-
-## Task Scopes
-
-Manage child task lifetimes deterministically without using Java preview APIs (`StructuredTaskScope`):
-
-```java
-try (TaskScope scope = VT.scope()) {
-    Task<Customer> customerTask = scope.async("load-customer", () -> customerService.findRequired(id));
-    Task<List<Order>> ordersTask = scope.async("load-orders", () -> orderService.findForCustomer(id));
-
-    Customer customer = scope.await(customerTask);
-    List<Order> orders = scope.await(ordersTask);
-
-    return new Dashboard(customer, orders);
-}
-```
-
-Or using `VT.scoped(...)`:
-
-```java
-Dashboard dashboard = VT.scoped(scope -> {
-    Task<Customer> customerTask = scope.async(() -> customerService.findRequired(id));
-    Task<List<Order>> ordersTask = scope.async(() -> orderService.findForCustomer(id));
-
-    return new Dashboard(scope.await(customerTask), scope.await(ordersTask));
-});
 ```
 
 ---
@@ -185,94 +265,35 @@ Dashboard dashboard = VT.scoped(scope -> {
 
 - **Unchecked Exceptions (`RuntimeException`)**: Rethrown directly.
 - **Errors (`Error`)**: Rethrown directly.
-- **Checked Exceptions**: Wrapped in `TaskExecutionException` preserving cause.
+- **Checked Exceptions**: Wrapped in `TaskExecutionException` preserving the original cause.
 - **Await Timeout**: Throws `TaskTimeoutException`.
 - **Cancellation**: Throws `java.util.concurrent.CancellationException`.
-- **Interruption**: Restores interrupted flag and throws `CancellationException`.
 
 ---
 
-## Static API vs. Injectable `AsyncRuntime`
-
-Use `VT` for static facade convenience in plain Java code.
-Use `AsyncRuntime` for dependency injection and framework integration:
-
-```java
-@Bean
-public AsyncRuntime asyncRuntime() {
-    return AsyncRuntime.builder()
-            .threadNamePrefix("booking-task-")
-            .build();
-}
-```
-
----
-
-## Spring Boot Integration
-
-Add `vt-async-await-spring-boot-starter` to auto-configure an `AsyncRuntime` bean:
-
-```properties
-vt.concurrent.enabled=true
-vt.concurrent.thread-name-prefix=booking-task-
-```
-
-Inject `AsyncRuntime` directly into your services:
-
-```java
-@Service
-public class DashboardService {
-    private final AsyncRuntime asyncRuntime;
-
-    public DashboardService(AsyncRuntime asyncRuntime) {
-        this.asyncRuntime = asyncRuntime;
-    }
-}
-```
-
----
-
-## Framework Context Propagation
-
-Use `TaskDecorator` to capture caller thread context (MDC, tracing, Security) and restore it on virtual threads:
-
-```java
-TaskDecorator decorator = operation -> {
-    String mdcContext = MDC.get("requestId");
-    return () -> {
-        MDC.put("requestId", mdcContext);
-        try {
-            operation.run();
-        } finally {
-            MDC.remove("requestId");
-        }
-    };
-};
-
-AsyncRuntime runtime = AsyncRuntime.builder()
-        .taskDecorator(decorator)
-        .build();
-```
-
----
-
-## Building & Publishing
+## Building & Local Publishing
 
 Build the library:
-
 ```bash
 ./gradlew build
 ```
 
 Publish artifacts to Maven Local:
-
 ```bash
 ./gradlew publishToMavenLocal
 ```
 
 ---
 
-## Limitations
+## Publishing to GitHub
 
-- Spring transactions are bound to the creating thread. `VT.async()` does not propagate open Spring transactions across virtual thread boundaries.
-- ThreadLocal context propagation must be configured explicitly via `TaskDecorator`.
+To push this repository to GitHub:
+
+```bash
+git init
+git add .
+git commit -m "Initial commit of vt-async-await library"
+git branch -M main
+git remote add origin git@github.com:YOUR_USERNAME/vt-async-await.git
+git push -u origin main
+```
