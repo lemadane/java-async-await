@@ -1,22 +1,8 @@
-rootProject.name = 'jatot-native-html'
+rootProject.name = 'vt-async-await'
 
-
-include 'jatot-compiler'
-
-include 'jatot-html-demo-routing'
-project(':jatot-html-demo-routing').projectDir = new File(settingsDir, 'jatot-compiler/src/e2e/jatot-html-demo-routing')
-
-include 'jatot-html-demo-sql'
-project(':jatot-html-demo-sql').projectDir = new File(settingsDir, 'jatot-compiler/src/e2e/jatot-html-demo-sql')
-
-include 'jatot-spring-boot-starter'
-
-include 'tools:jatot-language-tools'
-project(':tools:jatot-language-tools').projectDir = new File(settingsDir, 'tools/jatot-language-tools')
-
-include 'tools:jatot-language-server'
-project(':tools:jatot-language-server').projectDir = new File(settingsDir, 'tools/jatot-language-server')
-
-include 'tools:jatot-intellij'
-project(':tools:jatot-intellij').projectDir = new File(settingsDir, 'tools/jatot-intellij')
-
+include 'vt-async-await-spring-boot-autoconfigure'
+include 'vt-async-await-spring-boot-starter'
+include 'examples:vt-async-await-java'
+project(':examples:vt-async-await-java').projectDir = new File(settingsDir, 'examples/vt-async-await-java')
+include 'examples:vt-async-await-spring-boot'
+project(':examples:vt-async-await-spring-boot').projectDir = new File(settingsDir, 'examples/vt-async-await-spring-boot')

@@ -1,0 +1,35 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(findProperty('javaToolchainVersion') ? Integer.parseInt(findProperty('javaToolchainVersion')) : 21)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+dependencies {
+    api rootProject
+    api project(':vt-async-await-spring-boot-autoconfigure')
+    api 'org.springframework.boot:spring-boot-autoconfigure:3.3.5'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            pom {
+                name = 'Java Concurrent Spring Boot Starter'
+                description = 'Spring Boot Starter for Java Async/Await'
+            }
+        }
+    }
+}

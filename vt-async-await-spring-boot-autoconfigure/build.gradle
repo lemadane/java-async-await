@@ -3,15 +3,6 @@ plugins {
     id 'maven-publish'
 }
 
-allprojects {
-    group = 'io.lemonade'
-    version = '0.1.0-alpha.1'
-
-    repositories {
-        mavenCentral()
-    }
-}
-
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(findProperty('javaToolchainVersion') ? Integer.parseInt(findProperty('javaToolchainVersion')) : 21)
@@ -23,20 +14,18 @@ java {
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
     options.encoding = 'UTF-8'
-    options.compilerArgs += ['-Xlint:all', '-Werror']
-}
-
-tasks.named('jar') {
-    manifest {
-        attributes(
-            'Automatic-Module-Name': 'io.lemonade.vtasyncawait'
-        )
-    }
+    options.compilerArgs += ['-Xlint:all', '-Xlint:-processing', '-Werror']
 }
 
 dependencies {
+    api rootProject
+    implementation 'org.springframework.boot:spring-boot-autoconfigure:3.3.5'
+
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor:3.3.5'
+
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.3.5'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -48,17 +37,9 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-
             pom {
-                name = 'Java Concurrent Async/Await'
-                description = 'Production-ready framework-neutral Java virtual-thread async/await library'
-                url = 'https://github.com/lemadane/vt-async-await'
-                licenses {
-                    license {
-                        name = 'MIT License'
-                        url = 'https://opensource.org/licenses/MIT'
-                    }
-                }
+                name = 'Java Concurrent Spring Boot Autoconfigure'
+                description = 'Spring Boot Auto-configuration for Java Async/Await'
             }
         }
     }
