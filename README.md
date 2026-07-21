@@ -15,7 +15,7 @@ A production-ready, framework-neutral Java library providing virtual-thread `asy
 
 ## Installation
 
-### Gradle (Groovy DSL)
+### Gradle (Groovy)
 
 ```groovy
 repositories {
@@ -25,19 +25,6 @@ repositories {
 
 dependencies {
     implementation 'io.lemonade:vt-async-await:0.1.0-alpha.1'
-}
-```
-
-### Gradle (Kotlin DSL)
-
-```kotlin
-repositories {
-    mavenCentral()
-    mavenLocal()
-}
-
-dependencies {
-    implementation("io.lemonade:vt-async-await:0.1.0-alpha.1")
 }
 ```
 

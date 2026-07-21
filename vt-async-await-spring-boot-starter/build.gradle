@@ -17,7 +17,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 dependencies {
-    api rootProject
+    api project(':')
     api project(':vt-async-await-spring-boot-autoconfigure')
     api 'org.springframework.boot:spring-boot-autoconfigure:3.3.5'
 }

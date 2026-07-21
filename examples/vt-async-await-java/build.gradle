@@ -14,7 +14,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 dependencies {
-    implementation rootProject
+    implementation project(':')
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
