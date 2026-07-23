@@ -1,11 +1,11 @@
 package example;
 
-import io.lemonade.vtasyncawait.AsyncRuntime;
-import io.lemonade.vtasyncawait.Task;
-import io.lemonade.vtasyncawait.TaskScope;
+import io.lemadane.vt.async.await.AsyncRuntime;
+import io.lemadane.vt.async.await.Task;
+import io.lemadane.vt.async.await.TaskScope;
 
-import static io.lemonade.vtasyncawait.VT.async;
-import static io.lemonade.vtasyncawait.VT.await;
+import static io.lemadane.vt.async.await.VT.async;
+import static io.lemadane.vt.async.await.VT.await;
 
 public class JavaAsyncExample {
 

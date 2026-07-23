@@ -24,7 +24,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.lemonade:vt-async-await:0.1.0-alpha.1'
+    implementation 'io.lemadane:vt-async-await:0.1.0-alpha.1'
 }
 ```
 
@@ -32,7 +32,7 @@ dependencies {
 
 ```xml
 <dependency>
-    <groupId>io.lemonade</groupId>
+    <groupId>io.lemadane</groupId>
     <artifactId>vt-async-await</artifactId>
     <version>0.1.0-alpha.1</version>
 </dependency>
@@ -43,10 +43,10 @@ dependencies {
 ## Quick Start (Plain Java)
 
 ```java
-import static io.lemonade.vtasyncawait.VT.async;
-import static io.lemonade.vtasyncawait.VT.await;
+import static io.lemadane.vt.async.await.VT.async;
+import static io.lemadane.vt.async.await.VT.await;
 
-import io.lemonade.vtasyncawait.Task;
+import io.lemadane.vt.async.await.Task;
 
 public class CustomerDashboard {
 
@@ -73,14 +73,14 @@ public class CustomerDashboard {
 **Gradle (Groovy):**
 ```groovy
 dependencies {
-    implementation 'io.lemonade:vt-async-await-spring-boot-starter:0.1.0-alpha.1'
+    implementation 'io.lemadane:vt-async-await-spring-boot-starter:0.1.0-alpha.1'
 }
 ```
 
 **Maven (`pom.xml`):**
 ```xml
 <dependency>
-    <groupId>io.lemonade</groupId>
+    <groupId>io.lemadane</groupId>
     <artifactId>vt-async-await-spring-boot-starter</artifactId>
     <version>0.1.0-alpha.1</version>
 </dependency>
@@ -106,9 +106,9 @@ The starter automatically provides an `AsyncRuntime` bean in the application con
 ```java
 package com.example.service;
 
-import io.lemonade.vtasyncawait.AsyncRuntime;
-import io.lemonade.vtasyncawait.Task;
-import io.lemonade.vtasyncawait.TaskScope;
+import io.lemadane.vt.async.await.AsyncRuntime;
+import io.lemadane.vt.async.await.Task;
+import io.lemadane.vt.async.await.TaskScope;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -181,7 +181,7 @@ In Spring Boot, log trace IDs and MDC context are often set on the request handl
 ```java
 package com.example.config;
 
-import io.lemonade.vtasyncawait.TaskDecorator;
+import io.lemadane.vt.async.await.TaskDecorator;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

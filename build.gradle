@@ -4,7 +4,7 @@ plugins {
 }
 
 allprojects {
-    group = 'io.lemonade'
+    group = 'io.lemadane'
     version = '0.1.0-alpha.1'
 
     repositories {
@@ -29,7 +29,7 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('jar') {
     manifest {
         attributes(
-            'Automatic-Module-Name': 'io.lemonade.vtasyncawait'
+            'Automatic-Module-Name': 'io.lemadane.vt.async.await'
         )
     }
 }

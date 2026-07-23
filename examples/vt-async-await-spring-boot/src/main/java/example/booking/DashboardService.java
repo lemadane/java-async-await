@@ -1,8 +1,8 @@
 package example.booking;
 
-import io.lemonade.vtasyncawait.AsyncRuntime;
-import io.lemonade.vtasyncawait.Task;
-import io.lemonade.vtasyncawait.TaskScope;
+import io.lemadane.vt.async.await.AsyncRuntime;
+import io.lemadane.vt.async.await.Task;
+import io.lemadane.vt.async.await.TaskScope;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
