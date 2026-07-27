@@ -277,4 +277,22 @@ class ConcurrencyStressTest {
             runtime.close();
         }
     }
+
+    @Test
+    void testAwaitedTaskStatusInstantConsistency() throws Exception {
+        int iterations = getIterations();
+        for (int i = 0; i < iterations; i++) {
+            AsyncRuntime runtime = AsyncRuntime.builder().build();
+            Task<String> task = runtime.async(() -> "value");
+
+            assertEquals("value", runtime.await(task));
+
+            // Immediately check status
+            assertTrue(task.isDone(), "task.isDone() must be true immediately after await returns");
+            assertNotEquals(Task.State.RUNNING, task.lifecycleState(), "task state must not be RUNNING after await returns");
+            assertNotEquals(Task.State.CREATED, task.lifecycleState(), "task state must not be CREATED after await returns");
+
+            runtime.close();
+        }
+    }
 }

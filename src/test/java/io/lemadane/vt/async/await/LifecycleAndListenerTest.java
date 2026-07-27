@@ -324,4 +324,19 @@ class LifecycleAndListenerTest {
         assertEquals("success", val);
         runtime.close();
     }
+
+    @Test
+    void testRepeatedAwaitOwnershipValidity() {
+        AsyncRuntime runtime = AsyncRuntime.builder().build();
+        try (TaskScope scope = runtime.scope()) {
+            Task<String> task = scope.async(() -> "val");
+
+            // First await
+            assertEquals("val", scope.await(task));
+
+            // Second await should also succeed and not throw IllegalArgumentException!
+            assertEquals("val", scope.await(task));
+        }
+        runtime.close();
+    }
 }

@@ -14,7 +14,7 @@ Inspired by async/await syntax in other languages, this library does NOT introdu
 - **Build JDK**: JDK 21 or newer (Java 25 recommended)
 - **Runtime Environment**: Java 21 or newer
 - **Bytecode Target**: Java 21 (`options.release = 21`)
-- **Preview Features**: None required (production-ready non-preview API)
+- **Preview Features**: None required (standard non-preview API)
 
 ---
 

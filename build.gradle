@@ -45,7 +45,7 @@ configure([project, project(':vt-async-await-spring-boot-autoconfigure'), projec
                 pom {
                     name = project.name == 'vt-async-await' ? 'Java Concurrent Async/Await' : project.name.replace('-', ' ')
                     description = project.name == 'vt-async-await' ? 
-                        'Production-ready framework-neutral Java virtual-thread async/await library' : 
+                        'Framework-neutral Java virtual-thread async/await library' : 
                         "Spring Boot support for Java Concurrent Async/Await"
                     url = 'https://github.com/lemadane/java-async-await'
                     licenses {

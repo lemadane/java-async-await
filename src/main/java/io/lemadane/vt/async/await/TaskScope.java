@@ -24,6 +24,8 @@ public final class TaskScope implements AutoCloseable {
         CLOSED
     }
 
+    private static final java.util.concurrent.atomic.AtomicLong scopeSequence = new java.util.concurrent.atomic.AtomicLong(0);
+    private final long id = scopeSequence.incrementAndGet();
     private final AsyncRuntime runtime;
     private final Set<Task<?>> tasks = ConcurrentHashMap.newKeySet();
     private final ReentrantLock lock = new ReentrantLock();
@@ -63,6 +65,7 @@ public final class TaskScope implements AutoCloseable {
                 throw new IllegalStateException("TaskScope is not open (state: " + state + ")");
             }
             task = runtime.createUnstartedTask(taskName, operation);
+            task.setOwnerScopeId(this.id);
             tasks.add(task);
         } finally {
             lock.unlock();
@@ -354,7 +357,7 @@ public final class TaskScope implements AutoCloseable {
 
     private void validateTaskOwner(Task<?> task) {
         Objects.requireNonNull(task, "task");
-        if (!tasks.contains(task)) {
+        if (task.ownerScopeId() != this.id) {
             throw new IllegalArgumentException("Task was not created by this scope: " + task.name());
         }
     }

@@ -27,3 +27,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Interruption flag leak**: Fixed child task interruption incorrectly setting the interrupt flag of the awaiting thread.
 - **Spring dependency bloat**: Fixed hardcoded Spring Boot version runtime constraint by using `compileOnly` scope, enabling consumer applications to manage their own Spring Boot version.
 - **Combinator Safety**: Prevented combinators from hanging after decorator-level failures.
+- **TaskScope Task Ownership**: Changed task ownership validation to match immutable task scope IDs rather than set containment. This resolves incorrect `IllegalArgumentException` on repeated `await()` calls of completed and cleaned tasks.

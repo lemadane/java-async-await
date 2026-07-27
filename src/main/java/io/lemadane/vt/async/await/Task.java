@@ -44,6 +44,15 @@ public final class Task<T> implements Future<T> {
     private final java.util.concurrent.locks.ReentrantLock stateLock = new java.util.concurrent.locks.ReentrantLock();
     private final java.util.concurrent.atomic.AtomicBoolean completionPublished = new java.util.concurrent.atomic.AtomicBoolean(false);
     private volatile State state = State.CREATED;
+    private volatile long ownerScopeId = -1L;
+
+    void setOwnerScopeId(long ownerScopeId) {
+        this.ownerScopeId = ownerScopeId;
+    }
+
+    long ownerScopeId() {
+        return ownerScopeId;
+    }
 
     Task(String name, Callable<T> callable, Thread executingThread, java.util.function.Function<Task<T>, Runnable> startActionFactory) {
         this.name = name != null && !name.isBlank() ? name : "anonymous";
@@ -87,6 +96,10 @@ public final class Task<T> implements Future<T> {
      */
     public void onComplete(Runnable listener) {
         Objects.requireNonNull(listener, "listener");
+        if (futureTask.isDone() && !completionPublished.get()) {
+            completeFromFuture(futureTask);
+        }
+
         boolean runImmediately = false;
         stateLock.lock();
         try {
@@ -115,6 +128,26 @@ public final class Task<T> implements Future<T> {
     public State lifecycleState() {
         stateLock.lock();
         try {
+            if (state == State.CREATED) {
+                return State.CREATED;
+            }
+            if (futureTask.isCancelled()) {
+                return State.CANCELLED;
+            }
+            if (futureTask.isDone()) {
+                try {
+                    Future.State fState = futureTask.state();
+                    if (fState == Future.State.SUCCESS) {
+                        return State.SUCCESS;
+                    } else if (fState == Future.State.FAILED) {
+                        return State.FAILED;
+                    } else if (fState == Future.State.CANCELLED) {
+                        return State.CANCELLED;
+                    }
+                } catch (Exception e) {
+                    return State.FAILED;
+                }
+            }
             return state;
         } finally {
             stateLock.unlock();
@@ -125,19 +158,16 @@ public final class Task<T> implements Future<T> {
     public java.util.concurrent.Future.State state() {
         stateLock.lock();
         try {
-            switch (state) {
-                case CREATED:
-                case RUNNING:
-                    return java.util.concurrent.Future.State.RUNNING;
-                case SUCCESS:
-                    return java.util.concurrent.Future.State.SUCCESS;
-                case FAILED:
-                    return java.util.concurrent.Future.State.FAILED;
-                case CANCELLED:
-                    return java.util.concurrent.Future.State.CANCELLED;
-                default:
-                    throw new IllegalStateException("Unknown state: " + state);
+            if (state == State.CREATED) {
+                return java.util.concurrent.Future.State.RUNNING;
             }
+            if (futureTask.isCancelled()) {
+                return java.util.concurrent.Future.State.CANCELLED;
+            }
+            if (futureTask.isDone()) {
+                return futureTask.state();
+            }
+            return java.util.concurrent.Future.State.RUNNING;
         } finally {
             stateLock.unlock();
         }
@@ -286,22 +316,12 @@ public final class Task<T> implements Future<T> {
 
     @Override
     public boolean isCancelled() {
-        stateLock.lock();
-        try {
-            return state == State.CANCELLED;
-        } finally {
-            stateLock.unlock();
-        }
+        return futureTask.isCancelled();
     }
 
     @Override
     public boolean isDone() {
-        stateLock.lock();
-        try {
-            return state == State.SUCCESS || state == State.FAILED || state == State.CANCELLED;
-        } finally {
-            stateLock.unlock();
-        }
+        return futureTask.isDone();
     }
 
     @Override
