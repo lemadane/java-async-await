@@ -267,10 +267,17 @@ public final class Task<T> implements Future<T> {
     public T await(Duration timeout) {
         long nanos = toNanosSafe(timeout);
         try {
-            return futureTask.get(nanos, TimeUnit.NANOSECONDS);
+            T result = futureTask.get(nanos, TimeUnit.NANOSECONDS);
+            if (!completionPublished.get()) {
+                completeFromFuture(futureTask);
+            }
+            return result;
         } catch (InterruptedException e) {
             throw ExceptionSupport.handleInterrupted(e);
         } catch (ExecutionException e) {
+            if (!completionPublished.get()) {
+                completeFromFuture(futureTask);
+            }
             throw ExceptionSupport.unwrapAndRethrow(e);
         } catch (TimeoutException e) {
             throw new TaskTimeoutException(name, timeout, e);

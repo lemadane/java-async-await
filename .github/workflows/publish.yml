@@ -38,7 +38,7 @@ jobs:
           fi
 
       - name: Run Full Test Suite
-        run: ./gradlew clean check
+        run: ./gradlew clean check stressTest
 
       - name: Validate POM Metadata
         run: |

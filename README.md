@@ -20,6 +20,9 @@ Inspired by async/await syntax in other languages, this library does NOT introdu
 
 ## Installation
 
+> [!NOTE]
+> **Pre-release & Local Testing**: `0.1.0-alpha.2` is currently in pre-release state. To test before the release tag workflow finishes publishing to Maven Central, run `./gradlew publishToMavenLocal` and include `mavenLocal()` in your repositories block.
+
 ### Gradle (Groovy)
 
 ```groovy

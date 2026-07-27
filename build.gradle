@@ -70,13 +70,19 @@ configure([project, project(':vt-async-await-spring-boot-autoconfigure'), projec
         }
         repositories {
             maven {
-                name = 'OSSRH'
-                def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
-                def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                name = 'CentralPortal'
+                url = 'https://central.sonatype.com/api/v1/publisher/deployments/upload'
                 credentials {
                     username = System.getenv('MAVEN_CENTRAL_USERNAME') ?: project.findProperty('mavenCentralUsername')
                     password = System.getenv('MAVEN_CENTRAL_PASSWORD') ?: project.findProperty('mavenCentralPassword')
+                }
+            }
+            maven {
+                name = 'GitHubPackages'
+                url = 'https://maven.pkg.github.com/lemadane/java-async-await'
+                credentials {
+                    username = System.getenv('GITHUB_ACTOR') ?: project.findProperty('githubActor') ?: 'lemadane'
+                    password = System.getenv('GITHUB_TOKEN') ?: project.findProperty('githubToken')
                 }
             }
         }
@@ -120,6 +126,10 @@ tasks.register('stressTest', Test) {
     timeout = java.time.Duration.ofMinutes(10)
     // Run tests in parallel if requested
     maxParallelForks = 1
+}
+
+tasks.named('check') {
+    dependsOn 'stressTest'
 }
 
 tasks.register('validatePom') {
