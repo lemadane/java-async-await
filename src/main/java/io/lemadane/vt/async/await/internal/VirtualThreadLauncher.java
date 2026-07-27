@@ -17,7 +17,7 @@ public final class VirtualThreadLauncher {
         this.uncaughtExceptionHandler = uncaughtExceptionHandler != null ? uncaughtExceptionHandler : (t, e) -> {};
     }
 
-    public Thread launch(String logicalName, Runnable task) {
+    public Thread createUnstarted(String logicalName, Runnable task) {
         Objects.requireNonNull(task, "task");
         long index = sequence.incrementAndGet();
         String threadName;
@@ -27,11 +27,14 @@ public final class VirtualThreadLauncher {
             threadName = threadNamePrefix + index;
         }
 
-        Thread thread = Thread.ofVirtual()
+        return Thread.ofVirtual()
                 .name(threadName)
                 .uncaughtExceptionHandler(uncaughtExceptionHandler)
                 .unstarted(task);
+    }
 
+    public Thread launch(String logicalName, Runnable task) {
+        Thread thread = createUnstarted(logicalName, task);
         thread.start();
         return thread;
     }

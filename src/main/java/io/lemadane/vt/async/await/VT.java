@@ -97,6 +97,18 @@ public final class VT {
     }
 
     /**
+     * Awaits completion of the given task up to the specified timeout, and cancels the task if it times out.
+     *
+     * @param <T> the result type
+     * @param task the task to await
+     * @param timeout maximum duration to wait
+     * @return the result of the task
+     */
+    public static <T> T awaitAndCancel(Task<T> task, Duration timeout) {
+        return DEFAULT_RUNTIME.awaitAndCancel(task, timeout);
+    }
+
+    /**
      * Creates a new structured {@link TaskScope} using the default runtime.
      *
      * @return a new TaskScope
@@ -121,5 +133,53 @@ public final class VT {
         } catch (Exception e) {
             throw new TaskExecutionException(e);
         }
+    }
+
+    /**
+     * Awaits all tasks. If any task fails or is cancelled, it immediately fails-fast
+     * and cancels all other tasks in the collection.
+     *
+     * @param <T> the task result type
+     * @param tasks the tasks collection
+     * @return the list of results in the same order as the inputs
+     */
+    public static <T> java.util.List<T> all(java.util.Collection<Task<? extends T>> tasks) {
+        return DEFAULT_RUNTIME.all(tasks);
+    }
+
+    /**
+     * Returns the result of the first task that succeeds. If all tasks fail,
+     * throws an {@link AggregateException} containing all failures.
+     *
+     * @param <T> the task result type
+     * @param tasks the tasks collection
+     * @return the first successful result
+     */
+    public static <T> T any(java.util.Collection<Task<? extends T>> tasks) {
+        return DEFAULT_RUNTIME.any(tasks);
+    }
+
+    /**
+     * Returns the result/exception of the first task that completes (succeeds,
+     * fails, or cancels), and cancels all other tasks.
+     *
+     * @param <T> the task result type
+     * @param tasks the tasks collection
+     * @return the result of the first completed task
+     */
+    public static <T> T race(java.util.Collection<Task<? extends T>> tasks) {
+        return DEFAULT_RUNTIME.race(tasks);
+    }
+
+    /**
+     * Awaits all tasks to settle (succeed, fail, or cancel) without throwing exceptions,
+     * returning the inputs.
+     *
+     * @param <T> the task result type
+     * @param tasks the tasks collection
+     * @return the input collection of tasks after all have completed
+     */
+    public static <T> java.util.Collection<Task<? extends T>> allSettled(java.util.Collection<Task<? extends T>> tasks) {
+        return DEFAULT_RUNTIME.allSettled(tasks);
     }
 }

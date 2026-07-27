@@ -1,6 +1,7 @@
 package io.lemadane.vt.async.await.internal;
 
 import io.lemadane.vt.async.await.TaskExecutionException;
+import io.lemadane.vt.async.await.TaskInterruptedException;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -32,10 +33,7 @@ public final class ExceptionSupport {
             throw error;
         }
         if (cause instanceof InterruptedException interruptedException) {
-            Thread.currentThread().interrupt();
-            CancellationException cancellationException = new CancellationException("Operation was interrupted");
-            cancellationException.initCause(interruptedException);
-            throw cancellationException;
+            throw new TaskExecutionException("Child task was interrupted", interruptedException);
         }
         if (cause instanceof CancellationException cancellationException) {
             throw cancellationException;
@@ -48,12 +46,10 @@ public final class ExceptionSupport {
      * Handles an InterruptedException during await.
      *
      * @param interruptedException the exception
-     * @return CancellationException with interrupted cause attached
+     * @return TaskInterruptedException with interrupted cause attached
      */
-    public static CancellationException handleInterrupted(InterruptedException interruptedException) {
+    public static TaskInterruptedException handleInterrupted(InterruptedException interruptedException) {
         Thread.currentThread().interrupt();
-        CancellationException cancellationException = new CancellationException("Awaiting thread was interrupted");
-        cancellationException.initCause(interruptedException);
-        return cancellationException;
+        return new TaskInterruptedException("Awaiting thread was interrupted", interruptedException);
     }
 }

@@ -18,6 +18,17 @@ public interface TaskDecorator {
     Runnable decorate(Runnable operation);
 
     /**
+     * Composes this decorator with another.
+     *
+     * @param after the decorator to run after this one
+     * @return the composed decorator
+     */
+    default TaskDecorator andThen(TaskDecorator after) {
+        java.util.Objects.requireNonNull(after, "after");
+        return operation -> this.decorate(after.decorate(operation));
+    }
+
+    /**
      * Returns an identity task decorator that performs no transformation.
      *
      * @return the identity decorator

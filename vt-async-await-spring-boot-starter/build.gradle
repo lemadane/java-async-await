@@ -1,6 +1,5 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
 }
 
 java {
@@ -19,17 +18,4 @@ tasks.withType(JavaCompile).configureEach {
 dependencies {
     api project(':')
     api project(':vt-async-await-spring-boot-autoconfigure')
-    api 'org.springframework.boot:spring-boot-autoconfigure:3.3.5'
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-            pom {
-                name = 'Java Concurrent Spring Boot Starter'
-                description = 'Spring Boot Starter for Java Async/Await'
-            }
-        }
-    }
 }

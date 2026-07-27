@@ -6,3 +6,4 @@ include 'examples:vt-async-await-java'
 project(':examples:vt-async-await-java').projectDir = new File(settingsDir, 'examples/vt-async-await-java')
 include 'examples:vt-async-await-spring-boot'
 project(':examples:vt-async-await-spring-boot').projectDir = new File(settingsDir, 'examples/vt-async-await-spring-boot')
+include 'benchmarks'

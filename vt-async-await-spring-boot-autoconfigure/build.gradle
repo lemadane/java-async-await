@@ -1,6 +1,5 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
 }
 
 java {
@@ -17,30 +16,27 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-Xlint:all', '-Xlint:-processing', '-Werror']
 }
 
+ext {
+    springBootVersion = project.findProperty('springBootVersion') ?: '3.3.5'
+}
+
 dependencies {
     api project(':')
-    implementation 'org.springframework.boot:spring-boot-autoconfigure:3.3.5'
+    compileOnly "org.springframework.boot:spring-boot-autoconfigure:${springBootVersion}"
+    compileOnly 'org.springframework.security:spring-security-core:6.3.3'
+    compileOnly 'org.springframework:spring-web:6.1.13'
+    compileOnly 'org.slf4j:slf4j-api:2.0.16'
 
-    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor:3.3.5'
+    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:${springBootVersion}"
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.3.5'
+    testImplementation "org.springframework.boot:spring-boot-starter-test:${springBootVersion}"
+    testImplementation 'org.springframework.security:spring-security-core:6.3.3'
+    testImplementation 'org.springframework:spring-web:6.1.13'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-            pom {
-                name = 'Java Concurrent Spring Boot Autoconfigure'
-                description = 'Spring Boot Auto-configuration for Java Async/Await'
-            }
-        }
-    }
 }

@@ -18,14 +18,168 @@ import java.util.concurrent.TimeoutException;
  */
 public final class Task<T> implements Future<T> {
 
+    /**
+     * Internal lifecycle states of a task.
+     */
+    public enum State {
+        /** Task has been created but not yet started. */
+        CREATED,
+        /** Task is currently running. */
+        RUNNING,
+        /** Task finished successfully. */
+        SUCCESS,
+        /** Task finished with an error. */
+        FAILED,
+        /** Task was cancelled before or during execution. */
+        CANCELLED
+    }
+
     private final String name;
     private final FutureTask<T> futureTask;
-    private final Thread executingThread;
+    private volatile Thread executingThread;
+    private final Runnable startAction;
 
-    Task(String name, FutureTask<T> futureTask, Thread executingThread) {
+    private final java.util.concurrent.CopyOnWriteArrayList<Runnable> completionListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.concurrent.locks.ReentrantLock stateLock = new java.util.concurrent.locks.ReentrantLock();
+    private State state = State.CREATED;
+
+    Task(String name, FutureTask<T> futureTask, Thread executingThread, Runnable startAction) {
         this.name = name != null && !name.isBlank() ? name : "anonymous";
         this.futureTask = Objects.requireNonNull(futureTask, "futureTask");
         this.executingThread = executingThread;
+        this.startAction = Objects.requireNonNull(startAction, "startAction");
+    }
+
+    void setExecutingThread(Thread thread) {
+        this.executingThread = thread;
+    }
+
+    private void notifyListeners() {
+        for (Runnable listener : completionListeners) {
+            try {
+                listener.run();
+            } catch (Throwable t) {
+                // Ignore listener exceptions to avoid propagating to executor thread
+            }
+        }
+    }
+
+    /**
+     * Registers a callback listener to be executed when the task completes.
+     * If the task is already completed, the listener is run immediately on the caller thread.
+     *
+     * @param listener the listener callback
+     */
+    public void onComplete(Runnable listener) {
+        Objects.requireNonNull(listener, "listener");
+        boolean runImmediately = false;
+        stateLock.lock();
+        try {
+            if (state == State.SUCCESS || state == State.FAILED || state == State.CANCELLED) {
+                runImmediately = true;
+            } else {
+                completionListeners.add(listener);
+            }
+        } finally {
+            stateLock.unlock();
+        }
+        if (runImmediately) {
+            try {
+                listener.run();
+            } catch (Throwable t) {
+                // Ignore listener exceptions
+            }
+        }
+    }
+
+    /**
+     * Returns the current lifecycle state of this task.
+     *
+     * @return the task state
+     */
+    public State lifecycleState() {
+        stateLock.lock();
+        try {
+            return state;
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    @Override
+    public java.util.concurrent.Future.State state() {
+        stateLock.lock();
+        try {
+            switch (state) {
+                case CREATED:
+                case RUNNING:
+                    return java.util.concurrent.Future.State.RUNNING;
+                case SUCCESS:
+                    return java.util.concurrent.Future.State.SUCCESS;
+                case FAILED:
+                    return java.util.concurrent.Future.State.FAILED;
+                case CANCELLED:
+                    return java.util.concurrent.Future.State.CANCELLED;
+                default:
+                    throw new IllegalStateException("Unknown state: " + state);
+            }
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * Starts execution of the task's thread if it is in the CREATED state.
+     */
+    void start() {
+        stateLock.lock();
+        try {
+            if (state == State.CREATED) {
+                state = State.RUNNING;
+                startAction.run();
+            }
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * Transitions the task to SUCCESS state.
+     */
+    void transitionToSuccess() {
+        stateLock.lock();
+        try {
+            if (state == State.RUNNING) {
+                state = State.SUCCESS;
+            }
+        } finally {
+            stateLock.unlock();
+        }
+        notifyListeners();
+    }
+
+    /**
+     * Transitions the task to FAILED state.
+     */
+    void transitionToFailed() {
+        stateLock.lock();
+        try {
+            if (state == State.RUNNING) {
+                state = State.FAILED;
+            }
+        } finally {
+            stateLock.unlock();
+        }
+        notifyListeners();
+    }
+
+    /**
+     * Returns the underlying thread executing this task.
+     *
+     * @return the executing thread
+     */
+    Thread executingThread() {
+        return executingThread;
     }
 
     /**
@@ -34,6 +188,7 @@ public final class Task<T> implements Future<T> {
      * @return the result of the task
      * @throws RuntimeException if the task threw an unchecked exception or was cancelled
      * @throws TaskExecutionException if the task threw a checked exception
+     * @throws TaskInterruptedException if the awaiting thread was interrupted
      */
     public T await() {
         try {
@@ -53,11 +208,12 @@ public final class Task<T> implements Future<T> {
      * @throws TaskTimeoutException if the task did not complete within the timeout
      * @throws RuntimeException if the task threw an unchecked exception or was cancelled
      * @throws TaskExecutionException if the task threw a checked exception
+     * @throws TaskInterruptedException if the awaiting thread was interrupted
      */
     public T await(Duration timeout) {
-        Objects.requireNonNull(timeout, "timeout");
+        long nanos = toNanosSafe(timeout);
         try {
-            return futureTask.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+            return futureTask.get(nanos, TimeUnit.NANOSECONDS);
         } catch (InterruptedException e) {
             throw ExceptionSupport.handleInterrupted(e);
         } catch (ExecutionException e) {
@@ -67,10 +223,25 @@ public final class Task<T> implements Future<T> {
         }
     }
 
+    private static long toNanosSafe(Duration duration) {
+        Objects.requireNonNull(duration, "timeout duration");
+        if (duration.isNegative()) {
+            throw new IllegalArgumentException("Timeout duration must not be negative: " + duration);
+        }
+        if (duration.isZero()) {
+            return 0L;
+        }
+        try {
+            return duration.toNanos();
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
     /**
      * Cancels execution of this task, interrupting its virtual thread if running.
      *
-     * @return {@code true} if the task was cancelled
+     * @return {@code true} if the task transitioned to CANCELLED state successfully
      */
     public boolean cancel() {
         return cancel(true);
@@ -78,21 +249,45 @@ public final class Task<T> implements Future<T> {
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
-        boolean result = futureTask.cancel(mayInterruptIfRunning);
-        if (mayInterruptIfRunning && executingThread != null && executingThread.isAlive()) {
-            executingThread.interrupt();
+        boolean cancelled = false;
+        stateLock.lock();
+        try {
+            if (state != State.SUCCESS && state != State.FAILED && state != State.CANCELLED) {
+                state = State.CANCELLED;
+                futureTask.cancel(mayInterruptIfRunning);
+                Thread thread = executingThread;
+                if (mayInterruptIfRunning && thread != null && thread.isAlive()) {
+                    thread.interrupt();
+                }
+                cancelled = true;
+            }
+        } finally {
+            stateLock.unlock();
         }
-        return result;
+        if (cancelled) {
+            notifyListeners();
+        }
+        return cancelled;
     }
 
     @Override
     public boolean isCancelled() {
-        return futureTask.isCancelled();
+        stateLock.lock();
+        try {
+            return state == State.CANCELLED;
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     @Override
     public boolean isDone() {
-        return futureTask.isDone();
+        stateLock.lock();
+        try {
+            return state == State.SUCCESS || state == State.FAILED || state == State.CANCELLED;
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     @Override
@@ -120,7 +315,16 @@ public final class Task<T> implements Future<T> {
      * @return {@code true} if running
      */
     public boolean isRunning() {
-        return !isDone() && !isCancelled() && executingThread != null && executingThread.isAlive();
+        stateLock.lock();
+        try {
+            if (state != State.RUNNING) {
+                return false;
+            }
+            Thread thread = executingThread;
+            return thread != null && thread.isAlive();
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     /**
@@ -129,6 +333,7 @@ public final class Task<T> implements Future<T> {
      * @return {@code true} if virtual thread
      */
     public boolean isVirtualThread() {
-        return executingThread != null && executingThread.isVirtual();
+        Thread thread = executingThread;
+        return thread != null && thread.isVirtual();
     }
 }

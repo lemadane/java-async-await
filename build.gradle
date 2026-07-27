@@ -1,36 +1,94 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'signing'
 }
 
 allprojects {
-    group = 'io.lemadane'
-    version = '0.1.0-alpha.1'
+    group = rootProject.group
+    version = rootProject.version
 
     repositories {
         mavenCentral()
     }
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(findProperty('javaToolchainVersion') ? Integer.parseInt(findProperty('javaToolchainVersion')) : 21)
+// Java and JavaCompile configuration
+allprojects {
+    apply plugin: 'java'
+    
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(findProperty('javaToolchainVersion') ? Integer.parseInt(findProperty('javaToolchainVersion')) : 21)
+        }
+        withSourcesJar()
+        withJavadocJar()
     }
-    withSourcesJar()
-    withJavadocJar()
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 21
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-Xlint:all', '-Werror']
+    }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.release = 21
-    options.encoding = 'UTF-8'
-    options.compilerArgs += ['-Xlint:all', '-Werror']
-}
+// Only enable publishing for the library modules, not benchmarks or examples
+configure([project, project(':vt-async-await-spring-boot-autoconfigure'), project(':vt-async-await-spring-boot-starter')]) {
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
 
-tasks.named('jar') {
-    manifest {
-        attributes(
-            'Automatic-Module-Name': 'io.lemadane.vt.async.await'
-        )
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+
+                pom {
+                    name = project.name == 'vt-async-await' ? 'Java Concurrent Async/Await' : project.name.replace('-', ' ')
+                    description = project.name == 'vt-async-await' ? 
+                        'Production-ready framework-neutral Java virtual-thread async/await library' : 
+                        "Spring Boot support for Java Concurrent Async/Await"
+                    url = 'https://github.com/lemadane/java-async-await'
+                    licenses {
+                        license {
+                            name = 'MIT License'
+                            url = 'https://opensource.org/licenses/MIT'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = 'lemadane'
+                            name = 'Lemadane'
+                        }
+                    }
+                    scm {
+                        connection = 'scm:git:git://github.com/lemadane/java-async-await.git'
+                        developerConnection = 'scm:git:ssh://github.com/lemadane/java-async-await.git'
+                        url = 'https://github.com/lemadane/java-async-await'
+                    }
+                }
+            }
+        }
+        repositories {
+            maven {
+                name = 'OSSRH'
+                def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+                def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                credentials {
+                    username = System.getenv('MAVEN_CENTRAL_USERNAME') ?: project.findProperty('mavenCentralUsername')
+                    password = System.getenv('MAVEN_CENTRAL_PASSWORD') ?: project.findProperty('mavenCentralPassword')
+                }
+            }
+        }
+    }
+
+    signing {
+        required = gradle.taskGraph.hasTask("publish")
+        def signingKey = System.getenv("SIGNING_KEY") ?: project.findProperty("signingKey")
+        def signingPassword = System.getenv("SIGNING_PASSWORD") ?: project.findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryKeys(signingKey, signingPassword)
+        }
     }
 }
 
@@ -41,25 +99,66 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'stress'
+    }
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
+tasks.register('stressTest', Test) {
+    description = 'Runs high-concurrency correctness and stress tests.'
+    group = 'verification'
+    
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
 
-            pom {
-                name = 'Java Concurrent Async/Await'
-                description = 'Production-ready framework-neutral Java virtual-thread async/await library'
-                url = 'https://github.com/lemadane/vt-async-await'
-                licenses {
-                    license {
-                        name = 'MIT License'
-                        url = 'https://opensource.org/licenses/MIT'
-                    }
-                }
+    useJUnitPlatform {
+        includeTags 'stress'
+    }
+    // Read stressIterations from command line property or default to 5000
+    systemProperty 'stressIterations', project.findProperty('stressIterations') ?: '5000'
+    // Ensure timeout in case it hangs
+    timeout = java.time.Duration.ofMinutes(10)
+    // Run tests in parallel if requested
+    maxParallelForks = 1
+}
+
+tasks.register('validatePom') {
+    description = 'Validates generated POM files for required Maven Central metadata.'
+    group = 'verification'
+    
+    def pomFiles = [
+        file("${buildDir}/publications/mavenJava/pom-default.xml"),
+        file("${project(':vt-async-await-spring-boot-autoconfigure').buildDir}/publications/mavenJava/pom-default.xml"),
+        file("${project(':vt-async-await-spring-boot-starter').buildDir}/publications/mavenJava/pom-default.xml")
+    ]
+    
+    dependsOn ':generatePomFileForMavenJavaPublication'
+    dependsOn ':vt-async-await-spring-boot-autoconfigure:generatePomFileForMavenJavaPublication'
+    dependsOn ':vt-async-await-spring-boot-starter:generatePomFileForMavenJavaPublication'
+
+    inputs.files(pomFiles)
+
+    doLast {
+        pomFiles.each { pomFile ->
+            if (!pomFile.exists()) {
+                throw new GradleException("POM file does not exist at ${pomFile}. Run generatePomFileForMavenJavaPublication first.")
             }
+            println "Validating POM: ${pomFile}"
+            def xml = new groovy.xml.XmlParser().parse(pomFile)
+            
+            assert xml.name.text().trim() != "" : "POM name is missing"
+            assert xml.description.text().trim() != "" : "POM description is missing"
+            assert xml.url.text().trim() != "" : "POM url is missing"
+            
+            assert xml.licenses.license.name.text().trim() != "" : "POM license name is missing"
+            assert xml.licenses.license.url.text().trim() != "" : "POM license url is missing"
+            
+            assert xml.developers.developer.id.text().trim() != "" : "POM developer id is missing"
+            assert xml.developers.developer.name.text().trim() != "" : "POM developer name is missing"
+            
+            assert xml.scm.url.text().trim() != "" : "POM scm url is missing"
+            assert xml.scm.connection.text().trim() != "" : "POM scm connection is missing"
         }
+        println "All POMs contain required Maven Central metadata!"
     }
 }
