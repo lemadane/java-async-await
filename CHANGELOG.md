@@ -19,7 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **JMH Benchmarks**: Added a new `benchmarks` module using JMH to compare direct virtual threads vs library primitives.
 
 ### Fixed
+- **Task Lifecycle Consistency**: Redesigned the task completion mechanism so the underlying `ManagedFutureTask` serves as the single authoritative completion source of truth, preventing custom Task state from diverging.
+- **Exactly-Once Completion Listeners**: Ensured completion listeners are triggered exactly once without holding any internal task-state locks, eliminating duplicate execution races.
+- **Decorator Setup/Cleanup Failure Semantics**: Ensured that decorator setup and cleanup failures transition the task to `FAILED` and properly propagate the exceptions (including suppressing cleanup errors when the user operation also fails).
 - **TaskScope Race Condition**: Resolved the race condition between task submission and scope closing by synchronizing state checking and task registration under a `ReentrantLock`.
 - **TaskScope Deadlock**: Prevented deadlocks when a scope's child task itself calls `scope.close()` by bypassing the `await()` call for the current thread.
 - **Interruption flag leak**: Fixed child task interruption incorrectly setting the interrupt flag of the awaiting thread.
 - **Spring dependency bloat**: Fixed hardcoded Spring Boot version runtime constraint by using `compileOnly` scope, enabling consumer applications to manage their own Spring Boot version.
+- **Combinator Safety**: Prevented combinators from hanging after decorator-level failures.

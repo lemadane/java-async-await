@@ -188,4 +188,93 @@ class ConcurrencyStressTest {
         }
         runtime.close();
     }
+
+    @Test
+    void testCancelFailRace() throws Exception {
+        int iterations = getIterations();
+        for (int i = 0; i < iterations; i++) {
+            CountDownLatch started = new CountDownLatch(1);
+            Task<String> task = VT.async(() -> {
+                started.countDown();
+                throw new RuntimeException("fail");
+            });
+            Thread canceller = Thread.ofVirtual().start(() -> {
+                task.cancel(true);
+            });
+            try {
+                task.await();
+            } catch (RuntimeException ce) {
+                // Expected either cancellation or runtime exception
+            }
+            canceller.join();
+        }
+    }
+
+    @Test
+    void testListenerRegistrationCompletionRace() throws Exception {
+        int iterations = getIterations();
+        for (int i = 0; i < iterations; i++) {
+            AsyncRuntime runtime = AsyncRuntime.builder().build();
+            Task<String> task = runtime.createUnstartedTask("race", () -> "ok");
+
+            java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger(0);
+            CountDownLatch listenerLatch = new CountDownLatch(1);
+
+            Thread registrationThread = Thread.ofVirtual().start(() -> {
+                task.onComplete(() -> {
+                    count.incrementAndGet();
+                    listenerLatch.countDown();
+                });
+            });
+
+            Thread completionThread = Thread.ofVirtual().start(() -> {
+                task.start();
+            });
+
+            registrationThread.join();
+            completionThread.join();
+
+            try {
+                task.await();
+            } catch (Exception e) {
+                // Ignore exceptions during race
+            }
+
+            assertTrue(listenerLatch.await(5, TimeUnit.SECONDS), "Listener did not execute in time");
+            assertEquals(1, count.get(), "Listener must run exactly once");
+            runtime.close();
+        }
+    }
+
+    @Test
+    void testDecoratorFailureCancellationRace() throws Exception {
+        int iterations = getIterations();
+        for (int i = 0; i < iterations; i++) {
+            LifecycleAndListenerTest.TestDecorator decorator = new LifecycleAndListenerTest.TestDecorator();
+            decorator.setupFailed.set(true);
+            AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
+
+            Task<String> task = runtime.createUnstartedTask("race", () -> "ok");
+
+            Thread canceller = Thread.ofVirtual().start(() -> {
+                task.cancel(true);
+            });
+
+            Thread starter = Thread.ofVirtual().start(() -> {
+                task.start();
+            });
+
+            canceller.join();
+            starter.join();
+
+            try {
+                task.await();
+            } catch (RuntimeException ex) {
+                // Expected
+            }
+
+            assertTrue(task.isDone());
+            runtime.close();
+        }
+    }
 }

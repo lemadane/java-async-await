@@ -4,6 +4,7 @@ import io.lemadane.vt.async.await.internal.ExceptionSupport;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -35,27 +36,41 @@ public final class Task<T> implements Future<T> {
     }
 
     private final String name;
-    private final FutureTask<T> futureTask;
+    private final ManagedFutureTask<T> futureTask;
     private volatile Thread executingThread;
     private final Runnable startAction;
 
     private final java.util.concurrent.CopyOnWriteArrayList<Runnable> completionListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final java.util.concurrent.locks.ReentrantLock stateLock = new java.util.concurrent.locks.ReentrantLock();
-    private State state = State.CREATED;
+    private final java.util.concurrent.atomic.AtomicBoolean completionPublished = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private volatile State state = State.CREATED;
 
-    Task(String name, FutureTask<T> futureTask, Thread executingThread, Runnable startAction) {
+    Task(String name, Callable<T> callable, Thread executingThread, java.util.function.Function<Task<T>, Runnable> startActionFactory) {
         this.name = name != null && !name.isBlank() ? name : "anonymous";
-        this.futureTask = Objects.requireNonNull(futureTask, "futureTask");
+        this.futureTask = new ManagedFutureTask<>(callable, this);
         this.executingThread = executingThread;
-        this.startAction = Objects.requireNonNull(startAction, "startAction");
+        this.startAction = Objects.requireNonNull(startActionFactory.apply(this), "startAction");
     }
 
     void setExecutingThread(Thread thread) {
         this.executingThread = thread;
     }
 
+    ManagedFutureTask<T> futureTask() {
+        return futureTask;
+    }
+
     private void notifyListeners() {
-        for (Runnable listener : completionListeners) {
+        java.util.List<Runnable> copy;
+        stateLock.lock();
+        try {
+            copy = new java.util.ArrayList<>(completionListeners);
+            completionListeners.clear();
+        } finally {
+            stateLock.unlock();
+        }
+
+        for (Runnable listener : copy) {
             try {
                 listener.run();
             } catch (Throwable t) {
@@ -75,7 +90,7 @@ public final class Task<T> implements Future<T> {
         boolean runImmediately = false;
         stateLock.lock();
         try {
-            if (state == State.SUCCESS || state == State.FAILED || state == State.CANCELLED) {
+            if (completionPublished.get()) {
                 runImmediately = true;
             } else {
                 completionListeners.add(listener);
@@ -143,34 +158,43 @@ public final class Task<T> implements Future<T> {
         }
     }
 
-    /**
-     * Transitions the task to SUCCESS state.
-     */
-    void transitionToSuccess() {
+    void completeFromFuture(ManagedFutureTask<T> future) {
+        State terminalState = determineTerminalState(future);
+
+        boolean transitioned = false;
         stateLock.lock();
         try {
-            if (state == State.RUNNING) {
-                state = State.SUCCESS;
+            if (state == State.CREATED || state == State.RUNNING) {
+                state = terminalState;
+                transitioned = true;
+                completionPublished.set(true);
             }
         } finally {
             stateLock.unlock();
         }
-        notifyListeners();
+
+        if (transitioned) {
+            notifyListeners();
+        }
     }
 
-    /**
-     * Transitions the task to FAILED state.
-     */
-    void transitionToFailed() {
-        stateLock.lock();
-        try {
-            if (state == State.RUNNING) {
-                state = State.FAILED;
-            }
-        } finally {
-            stateLock.unlock();
+    private State determineTerminalState(ManagedFutureTask<T> future) {
+        if (future.isCancelled()) {
+            return State.CANCELLED;
         }
-        notifyListeners();
+        try {
+            Future.State fState = future.state();
+            if (fState == Future.State.SUCCESS) {
+                return State.SUCCESS;
+            } else if (fState == Future.State.FAILED) {
+                return State.FAILED;
+            } else if (fState == Future.State.CANCELLED) {
+                return State.CANCELLED;
+            }
+        } catch (Exception e) {
+            return State.FAILED;
+        }
+        return State.FAILED;
     }
 
     /**
@@ -249,25 +273,15 @@ public final class Task<T> implements Future<T> {
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
-        boolean cancelled = false;
         stateLock.lock();
         try {
-            if (state != State.SUCCESS && state != State.FAILED && state != State.CANCELLED) {
-                state = State.CANCELLED;
-                futureTask.cancel(mayInterruptIfRunning);
-                Thread thread = executingThread;
-                if (mayInterruptIfRunning && thread != null && thread.isAlive()) {
-                    thread.interrupt();
-                }
-                cancelled = true;
+            if (state == State.SUCCESS || state == State.FAILED || state == State.CANCELLED) {
+                return false;
             }
         } finally {
             stateLock.unlock();
         }
-        if (cancelled) {
-            notifyListeners();
-        }
-        return cancelled;
+        return futureTask.cancel(mayInterruptIfRunning);
     }
 
     @Override
@@ -335,5 +349,19 @@ public final class Task<T> implements Future<T> {
     public boolean isVirtualThread() {
         Thread thread = executingThread;
         return thread != null && thread.isVirtual();
+    }
+
+    static final class ManagedFutureTask<T> extends FutureTask<T> {
+        private final Task<T> owner;
+
+        ManagedFutureTask(Callable<T> callable, Task<T> owner) {
+            super(callable);
+            this.owner = owner;
+        }
+
+        @Override
+        protected void done() {
+            owner.completeFromFuture(this);
+        }
     }
 }

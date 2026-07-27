@@ -187,12 +187,22 @@ boolean cancelled = task.cancel(true); // returns true if transitioned to CANCEL
 
 ### Task State & Lifecycle
 
-Every `Task` goes through a strict state machine represented by the `Task.State` enum:
+Every `Task` is backed by a `ManagedFutureTask` which serves as the **single authoritative completion source**. The task goes through a strict state machine represented by the `Task.State` enum:
 - `CREATED`: Task instantiated but not yet started (e.g. unstarted tasks).
 - `RUNNING`: Virtual thread started and currently executing the task operation.
 - `SUCCESS`: Task completed successfully returning a value (or null).
 - `FAILED`: Task completed with an exception.
 - `CANCELLED`: Task was explicitly cancelled.
+
+#### Guarantees
+
+- **Authoritative Future Truth**: The task's lifecycle transition occurs inside the underlying `FutureTask` completion callback (`done()`), matching the future's terminal outcome.
+- **Single Terminal State Transition**: A task transitions to exactly one terminal state (`SUCCESS`, `FAILED`, or `CANCELLED`) exactly once. No terminal state may transition to any other state (e.g., calling `cancel()` after completion returns `false` and leaves the state unchanged).
+- **Exactly-Once Listeners**: Completion listeners execute at most once, only after reaching a terminal state. Listeners registered before completion run upon completion, and those registered after completion run immediately. No lock is held during listener callback execution.
+- **Decorator Correctness**: The entire execution chain (decorator setup, user operation execution, decorator cleanup/restore) is wrapped in the future's callable.
+  - If decorator setup or cleanup fails, the task transitions to `FAILED` and propagates the error.
+  - If both user execution and decorator cleanup fail, the user exception is thrown as the primary exception, and the cleanup exception is added as a suppressed exception.
+- **Thread Safety**: Multiple threads may await/query the same task concurrently and safely.
 
 You can inspect the state in two ways:
 - **Internal State**: `task.lifecycleState()` returns `Task.State`.

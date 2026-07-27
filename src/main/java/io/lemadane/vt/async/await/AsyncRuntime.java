@@ -85,64 +85,74 @@ public final class AsyncRuntime implements AutoCloseable {
         ensureNotShutdown();
         Objects.requireNonNull(operation, "operation");
 
-        java.util.concurrent.atomic.AtomicReference<Task<T>> taskRef = new java.util.concurrent.atomic.AtomicReference<>();
-        CallableHolder<T> holder = new CallableHolder<>();
+        final class OperationRunner implements Runnable {
+            T value;
+            Throwable exception;
 
-        Runnable wrapper = () -> {
-            Task<T> task = taskRef.get();
-            try {
-                holder.value = operation.call();
-                if (task != null) {
-                    task.transitionToSuccess();
+            @Override
+            public void run() {
+                try {
+                    value = operation.call();
+                } catch (Throwable t) {
+                    exception = t;
                 }
-            } catch (Exception e) {
-                holder.exception = e;
-                if (task != null) {
-                    task.transitionToFailed();
-                }
-            } catch (Throwable t) {
-                holder.exception = new RuntimeException(t);
-                if (task != null) {
-                    task.transitionToFailed();
-                }
-                throw t;
             }
-        };
+        }
 
-        // Capture context on the caller thread
-        Runnable decoratedRunnable = taskDecorator.decorate(wrapper);
+        OperationRunner runner = new OperationRunner();
+        Runnable decoratedRunnable = taskDecorator.decorate(runner);
         Objects.requireNonNull(decoratedRunnable, "TaskDecorator returned a null Runnable");
 
         Callable<T> callable = () -> {
-            decoratedRunnable.run();
-            if (holder.exception != null) {
-                throw holder.exception;
+            Throwable setupOrCleanupException = null;
+            try {
+                decoratedRunnable.run();
+            } catch (Throwable t) {
+                setupOrCleanupException = t;
             }
-            return holder.value;
-        };
 
-        FutureTask<T> futureTask = new FutureTask<>(callable);
+            Throwable userException = runner.exception;
+
+            if (userException != null && setupOrCleanupException != null) {
+                userException.addSuppressed(setupOrCleanupException);
+                throwException(userException);
+            } else if (userException != null) {
+                throwException(userException);
+            } else if (setupOrCleanupException != null) {
+                throwException(setupOrCleanupException);
+            }
+
+            return runner.value;
+        };
 
         Task<T> task;
         if (executorService != null) {
-            java.util.concurrent.atomic.AtomicReference<Task<T>> selfRef = new java.util.concurrent.atomic.AtomicReference<>();
-            Runnable startAction = () -> {
+            java.util.function.Function<Task<T>, Runnable> startActionFactory = (t) -> () -> {
                 executorService.execute(() -> {
-                    Task<T> t = selfRef.get();
-                    if (t != null) {
-                        t.setExecutingThread(Thread.currentThread());
-                    }
-                    futureTask.run();
+                    t.setExecutingThread(Thread.currentThread());
+                    t.futureTask().run();
                 });
             };
-            task = new Task<>(taskName, futureTask, null, startAction);
-            selfRef.set(task);
+            task = new Task<>(taskName, callable, null, startActionFactory);
         } else {
-            Thread thread = launcher.createUnstarted(taskName, futureTask);
-            task = new Task<>(taskName, futureTask, thread, () -> thread.start());
+            java.util.function.Function<Task<T>, Runnable> startActionFactory = (t) -> {
+                Thread thread = launcher.createUnstarted(taskName, t.futureTask());
+                t.setExecutingThread(thread);
+                return () -> thread.start();
+            };
+            task = new Task<>(taskName, callable, null, startActionFactory);
         }
-        taskRef.set(task);
         return task;
+    }
+
+    private static void throwException(Throwable t) throws Exception {
+        if (t instanceof Exception ex) {
+            throw ex;
+        }
+        if (t instanceof Error err) {
+            throw err;
+        }
+        throw new RuntimeException(t);
     }
 
     /**
@@ -468,10 +478,7 @@ public final class AsyncRuntime implements AutoCloseable {
         return tasks;
     }
 
-    private static final class CallableHolder<T> {
-        T value;
-        Exception exception;
-    }
+
 
     /**
      * Builder for configuring and creating an {@link AsyncRuntime}.
