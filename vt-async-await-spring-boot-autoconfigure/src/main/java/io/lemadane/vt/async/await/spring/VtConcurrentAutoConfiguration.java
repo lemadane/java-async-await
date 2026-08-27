@@ -24,7 +24,7 @@ public class VtConcurrentAutoConfiguration {
         try {
             Class.forName(className, false, VtConcurrentAutoConfiguration.class.getClassLoader());
             return true;
-        } catch (ClassNotFoundException e) {
+        } catch (Throwable t) {
             return false;
         }
     }
@@ -35,7 +35,7 @@ public class VtConcurrentAutoConfiguration {
                 return (TaskDecorator) Class.forName(decoratorClassName)
                         .getDeclaredConstructor()
                         .newInstance();
-            } catch (Exception e) {
+            } catch (Throwable t) {
                 return null;
             }
         }
