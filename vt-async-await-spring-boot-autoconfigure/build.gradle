@@ -17,7 +17,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 ext {
-    springBootVersion = project.findProperty('springBootVersion') ?: '3.3.5'
+    springBootVersion = project.findProperty('springBootVersion') ?: '3.4.3'
 }
 
 dependencies {
