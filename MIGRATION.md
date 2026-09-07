@@ -8,7 +8,7 @@ This document describes the changes required when migrating from `0.1.0-alpha.1`
 When the thread awaiting a task was interrupted, the library threw a `CancellationException` with the `InterruptedException` as the cause.
 
 ### New Behavior
-The library now throws a dedicated `io.lemadane.vt.async.await.TaskInterruptedException` (unchecked), which preserves the original `InterruptedException` as its cause and restores the thread's interrupt flag.
+The library now throws a dedicated `vt.async.await.TaskInterruptedException` (unchecked), which preserves the original `InterruptedException` as its cause and restores the thread's interrupt flag.
 
 ### Migration Action
 Update your exception catching blocks to expect `TaskInterruptedException` instead of `CancellationException` when dealing with awaiting thread interruptions:

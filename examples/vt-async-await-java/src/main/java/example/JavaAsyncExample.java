@@ -1,11 +1,11 @@
 package example;
 
-import io.lemadane.vt.async.await.AsyncRuntime;
-import io.lemadane.vt.async.await.Task;
-import io.lemadane.vt.async.await.TaskScope;
+import vt.async.await.AsyncRuntime;
+import vt.async.await.Task;
+import vt.async.await.TaskScope;
 
-import static io.lemadane.vt.async.await.VT.async;
-import static io.lemadane.vt.async.await.VT.await;
+import static vt.async.await.VT.async;
+import static vt.async.await.VT.await;
 
 public class JavaAsyncExample {
 

@@ -32,7 +32,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.lemadane:vt-async-await:0.1.0-alpha.2'
+    implementation 'vt.async.await:vt-async-await:0.1.0-alpha.2'
 }
 ```
 
@@ -40,7 +40,7 @@ dependencies {
 
 ```xml
 <dependency>
-    <groupId>io.lemadane</groupId>
+    <groupId>vt.async.await</groupId>
     <artifactId>vt-async-await</artifactId>
     <version>0.1.0-alpha.2</version>
 </dependency>
@@ -51,10 +51,10 @@ dependencies {
 ## Quick Start (Plain Java)
 
 ```java
-import static io.lemadane.vt.async.await.VT.async;
-import static io.lemadane.vt.async.await.VT.await;
+import static vt.async.await.VT.async;
+import static vt.async.await.VT.await;
 
-import io.lemadane.vt.async.await.Task;
+import vt.async.await.Task;
 
 public class CustomerDashboard {
 
@@ -81,14 +81,14 @@ public class CustomerDashboard {
 **Gradle (Groovy):**
 ```groovy
 dependencies {
-    implementation 'io.lemadane:vt-async-await-spring-boot-starter:0.1.0-alpha.2'
+    implementation 'vt.async.await:vt-async-await-spring-boot-starter:0.1.0-alpha.2'
 }
 ```
 
 **Maven (`pom.xml`):**
 ```xml
 <dependency>
-    <groupId>io.lemadane</groupId>
+    <groupId>vt.async.await</groupId>
     <artifactId>vt-async-await-spring-boot-starter</artifactId>
     <version>0.1.0-alpha.2</version>
 </dependency>
