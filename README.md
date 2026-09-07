@@ -74,6 +74,57 @@ public class CustomerDashboard {
 
 ---
 
+## Complete API Summary List
+
+Here is the master quick-reference list of all public APIs provided by `vt.async.await`:
+
+### 1. Static Facade (`vt.async.await.VT`)
+| API Method | Summary | Detailed Link |
+| :--- | :--- | :--- |
+| `VT.async(Callable<T>)` | Submits a value-returning operation on a virtual thread. | [Details & Example](#1-task-creation--execution) |
+| `VT.async(String name, Callable<T>)` | Submits a named value-returning operation. | [Details & Example](#1-task-creation--execution) |
+| `VT.async(Runnable)` | Submits a side-effect operation on a virtual thread. | [Details & Example](#1-task-creation--execution) |
+| `VT.async(String name, Runnable)` | Submits a named side-effect operation. | [Details & Example](#1-task-creation--execution) |
+| `VT.await(AsyncTask<T>)` | Cheaply blocks until task finishes and unwraps result. | [Details & Example](#2-awaiting--timeout-control) |
+| `VT.await(AsyncTask<T>, Duration)` | Awaits up to timeout; throws `AsyncTaskTimeoutException` (no cancel). | [Details & Example](#2-awaiting--timeout-control) |
+| `VT.awaitAndCancel(AsyncTask<T>, Duration)` | Awaits up to timeout and **cancels** task on expiration. | [Details & Example](#2-awaiting--timeout-control) |
+| `VT.scope()` | Creates a new structured `AsyncTaskScope` (`try-with-resources`). | [Details & Example](#3-structured-concurrency-scopes) |
+| `VT.scoped(ScopedOperation<T>)` | Executes operation inside an auto-closing scope. | [Details & Example](#3-structured-concurrency-scopes) |
+| `VT.all(Collection<AsyncTask<T>>)` | Fail-fast parallel all; returns `List<T>` or throws on error. | [Details & Example](#4-promise-combinators) |
+| `VT.any(Collection<AsyncTask<T>>)` | Returns first successful result; throws `AggregateException` if all fail. | [Details & Example](#4-promise-combinators) |
+| `VT.race(Collection<AsyncTask<T>>)` | Returns/rethrows outcome of whichever task settles first. | [Details & Example](#4-promise-combinators) |
+| `VT.allSettled(Collection<AsyncTask<T>>)` | Awaits all tasks to complete (success, fail, cancel) without throwing. | [Details & Example](#4-promise-combinators) |
+
+### 2. Task Handle (`vt.async.await.AsyncTask<T>`)
+| API Method | Summary | Detailed Link |
+| :--- | :--- | :--- |
+| `task.start()` | Starts execution if task is in `CREATED` state. | [Details & Example](#1-task-creation--execution) |
+| `task.onComplete(Runnable)` | Registers an exactly-once completion listener. | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+| `task.lifecycleState()` | Returns internal `AsyncTask.State` (`CREATED`, `RUNNING`, `SUCCESS`, `FAILED`, `CANCELLED`). | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+| `task.state()` | Overrides JDK `Future.state()`. | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+| `task.cancel()` / `task.cancel(boolean)` | Cancels execution and interrupts virtual thread. | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+| `task.isRunning()` | Returns `true` if thread is currently running. | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+| `task.isVirtualThread()` | Returns `true` if executing on a virtual thread. | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+| `task.name()` | Returns logical name of task. | [Details & Example](#5-task-lifecycle--completion-callbacks) |
+
+### 3. Structured Scope (`vt.async.await.AsyncTaskScope`)
+| API Method | Summary | Detailed Link |
+| :--- | :--- | :--- |
+| `scope.async(...)` | Spawns a task bound to scope lifecycle. | [Details & Example](#3-structured-concurrency-scopes) |
+| `scope.await(task)` / `scope.await(task, timeout)` | Awaits a task within scope. | [Details & Example](#3-structured-concurrency-scopes) |
+| `scope.awaitAndCancel(task, timeout)` | Awaits up to timeout and cancels task on expiration. | [Details & Example](#3-structured-concurrency-scopes) |
+| `scope.all(...)` / `scope.any(...)` / `scope.race(...)` / `scope.allSettled(...)` | Scope-bound combinators. | [Details & Example](#4-promise-combinators) |
+| `scope.close()` | Auto-closes scope, joining active child tasks. | [Details & Example](#3-structured-concurrency-scopes) |
+
+### 4. Custom Runtime & Context Decorators (`vt.async.await.AsyncRuntime`)
+| API Method | Summary | Detailed Link |
+| :--- | :--- | :--- |
+| `AsyncRuntime.builder()` | Configures thread prefix, decorators, exception handlers, or executors. | [Details & Example](#6-custom-runtime-configuration--context-decorators) |
+| `runtime.createUnstartedTask(...)` | Instantiates unstarted task in `CREATED` state. | [Details & Example](#1-task-creation--execution) |
+| `AsyncTaskDecorator.decorate(Runnable)` | Captures context on caller thread and restores on virtual thread. | [Details & Example](#6-custom-runtime-configuration--context-decorators) |
+
+---
+
 ## Using in Spring Boot Applications
 
 ### Step 1: Add Spring Boot Starter Dependency
@@ -155,6 +206,229 @@ public class AsyncConfig {
 }
 ```
 If a custom `AsyncTaskDecorator` bean is present, the default composite autoconfiguration backs off.
+
+---
+
+## API Feature Reference
+
+This section provides a complete reference of all API functions, their purpose, detailed explanations, and code examples.
+
+### 1. Task Creation & Execution
+
+#### `VT.async(Callable<T>)` / `VT.async(String name, Callable<T>)`
+* **Description**: Submits a value-returning operation (`Callable`) for immediate execution on a virtual thread.
+* **Use Case**: Used for initiating asynchronous background computation that produces a result.
+* **Code Example**:
+  ```java
+  AsyncTask<Customer> task = VT.async("fetch-customer", () -> customerService.find(id));
+  ```
+
+#### `VT.async(Runnable)` / `VT.async(String name, Runnable)`
+* **Description**: Submits a side-effect operation (`Runnable`) for immediate execution on a virtual thread.
+* **Use Case**: Used for fire-and-forget or side-effect tasks (e.g. audit logging, sending notifications).
+* **Code Example**:
+  ```java
+  AsyncTask<Void> auditTask = VT.async("audit-log", () -> auditLogger.logEvent("login", userId));
+  ```
+
+#### `runtime.createUnstartedTask(String name, Callable<T>/Runnable)` & `task.start()`
+* **Description**: Instantiates a task in the `CREATED` state without immediately starting its thread execution. Calling `.start()` triggers execution.
+* **Use Case**: Lazy initialization or deferred execution where task creation and execution timing must be decoupled.
+* **Code Example**:
+  ```java
+  AsyncTask<String> lazyTask = runtime.createUnstartedTask("lazy-task", () -> computeData());
+  // Later in execution flow:
+  lazyTask.start();
+  String result = runtime.await(lazyTask);
+  ```
+
+---
+
+### 2. Awaiting & Timeout Control
+
+#### `VT.await(AsyncTask<T>)`
+* **Description**: Cheaply blocks the current thread until the task completes and unwraps the result.
+* **Use Case**: Primary method for consuming an asynchronous task's output.
+* **Code Example**:
+  ```java
+  AsyncTask<User> userTask = VT.async(() -> userService.get(id));
+  User user = VT.await(userTask);
+  ```
+
+#### `VT.await(AsyncTask<T>, Duration timeout)`
+* **Description**: Awaits a task up to a specified maximum duration. If the duration elapses before completion, throws `AsyncTaskTimeoutException` **without** cancelling the background task.
+* **Use Case**: Soft timeouts where you want to stop waiting on the caller thread but allow the background task to finish.
+* **Code Example**:
+  ```java
+  try {
+      Data data = VT.await(task, Duration.ofSeconds(2));
+  } catch (AsyncTaskTimeoutException e) {
+      System.out.println("Wait timed out, task is still running in background");
+  }
+  ```
+
+#### `VT.awaitAndCancel(AsyncTask<T>, Duration timeout)`
+* **Description**: Awaits a task up to a specified duration and **automatically cancels** the task if the timeout elapses.
+* **Use Case**: Hard timeouts where an uncompleted background task is useless and should be terminated to free resources.
+* **Code Example**:
+  ```java
+  try {
+      Data data = VT.awaitAndCancel(task, Duration.ofSeconds(2));
+  } catch (AsyncTaskTimeoutException e) {
+      System.out.println("Wait timed out and background task was cancelled!");
+  }
+  ```
+
+---
+
+### 3. Structured Concurrency Scopes
+
+#### `VT.scope()` / `try (AsyncTaskScope scope = VT.scope())`
+* **Description**: Creates a new structured concurrency scope (`AutoCloseable`). All tasks spawned in the scope are bound to its lifecycle.
+* **Use Case**: Resource management ensuring child tasks are joined or cleaned up when leaving a block.
+* **Code Example**:
+  ```java
+  try (AsyncTaskScope scope = VT.scope()) {
+      AsyncTask<Customer> t1 = scope.async(() -> loadCustomer(id));
+      AsyncTask<Orders> t2 = scope.async(() -> loadOrders(id));
+      return new Summary(scope.await(t1), scope.await(t2));
+  }
+  ```
+
+#### `VT.scoped(ScopedOperation<T>)`
+* **Description**: Functional lambda wrapper that manages opening, executing, and closing an `AsyncTaskScope` automatically.
+* **Use Case**: Clean, single-expression functional scoping.
+* **Code Example**:
+  ```java
+  CustomerSummary summary = VT.scoped(scope -> {
+      AsyncTask<Customer> t1 = scope.async(() -> loadCustomer(id));
+      AsyncTask<Orders> t2 = scope.async(() -> loadOrders(id));
+      return new CustomerSummary(scope.await(t1), scope.await(t2));
+  });
+  ```
+
+---
+
+### 4. Promise Combinators
+
+#### `VT.all(Collection<AsyncTask<T>>)`
+* **Description**: Awaits all tasks. If any task fails, it immediately **fails-fast**, cancels all other tasks in the collection, and throws `AsyncTaskExecutionException`.
+* **Use Case**: Parallel execution where all sub-operations are strictly required.
+* **Code Example**:
+  ```java
+  List<String> results = VT.all(Arrays.asList(
+      VT.async(() -> fetchServiceA()),
+      VT.async(() -> fetchServiceB())
+  ));
+  ```
+
+#### `VT.any(Collection<AsyncTask<T>>)`
+* **Description**: Awaits and returns the result of the **first task that succeeds**. If all tasks fail, throws `AggregateException` containing all failures.
+* **Use Case**: Redundant fail-over requests across multiple providers or mirrors.
+* **Code Example**:
+  ```java
+  String data = VT.any(Arrays.asList(
+      VT.async(() -> fetchPrimaryMirror()),
+      VT.async(() -> fetchSecondaryMirror())
+  ));
+  ```
+
+#### `VT.race(Collection<AsyncTask<T>>)`
+* **Description**: Awaits and returns the outcome (value or exception) of whichever task **settles first** (succeeds, fails, or cancels), cancelling remaining tasks.
+* **Use Case**: Performance benchmarking or competitive execution across algorithms.
+* **Code Example**:
+  ```java
+  String fastest = VT.race(Arrays.asList(
+      VT.async(() -> algorithmA()),
+      VT.async(() -> algorithmB())
+  ));
+  ```
+
+#### `VT.allSettled(Collection<AsyncTask<T>>)`
+* **Description**: Awaits all tasks to complete (whether success, failure, or cancellation) without throwing exceptions, returning the settled task instances.
+* **Use Case**: Bulk processing or audit logging where individual failures should be inspected rather than aborting.
+* **Code Example**:
+  ```java
+  Collection<AsyncTask<? extends String>> settled = VT.allSettled(tasks);
+  for (AsyncTask<? extends String> task : settled) {
+      if (task.lifecycleState() == AsyncTask.State.SUCCESS) {
+          System.out.println("Result: " + VT.await(task));
+      } else {
+          System.out.println("State: " + task.lifecycleState());
+      }
+  }
+  ```
+
+---
+
+### 5. Task Lifecycle & Completion Callbacks
+
+#### `task.onComplete(Runnable listener)`
+* **Description**: Registers an exactly-once callback listener triggered when the task reaches a terminal state. Runs immediately if the task is already completed.
+* **Use Case**: Reactive notifications, logging, or metrics recording upon task completion.
+* **Code Example**:
+  ```java
+  AsyncTask<Order> task = VT.async(() -> processOrder(id));
+  task.onComplete(() -> metrics.increment("orders.processed"));
+  ```
+
+#### `task.lifecycleState()` / `task.state()`
+* **Description**: Queries the current state (`CREATED`, `RUNNING`, `SUCCESS`, `FAILED`, `CANCELLED`).
+* **Use Case**: Non-blocking status inspection.
+* **Code Example**:
+  ```java
+  if (task.lifecycleState() == AsyncTask.State.RUNNING) {
+      System.out.println("Task is still processing...");
+  }
+  ```
+
+#### `task.cancel()` / `task.cancel(boolean mayInterruptIfRunning)`
+* **Description**: Cancels execution of the task and interrupts its virtual thread if running.
+* **Use Case**: Manual cancellation when results are no longer required.
+* **Code Example**:
+  ```java
+  boolean cancelled = task.cancel(true);
+  ```
+
+#### `task.isRunning()` / `task.isVirtualThread()` / `task.name()`
+* **Description**: Diagnostic helpers to inspect running state, virtual thread backing, and task name.
+* **Code Example**:
+  ```java
+  System.out.println("Task " + task.name() + " isVirtual=" + task.isVirtualThread());
+  ```
+
+---
+
+### 6. Custom Runtime Configuration & Context Decorators
+
+#### `AsyncRuntime.builder()`
+* **Description**: Configures custom runtime settings: `threadNamePrefix`, `taskDecorator`, `uncaughtExceptionHandler`, and `executorService`.
+* **Use Case**: Application customization for custom thread naming, error handling, or context propagation.
+* **Code Example**:
+  ```java
+  AsyncRuntime runtime = AsyncRuntime.builder()
+      .threadNamePrefix("my-app-worker-")
+      .taskDecorator(myDecorator)
+      .build();
+  ```
+
+#### `AsyncTaskDecorator` / `.andThen(...)`
+* **Description**: Functional interface for capturing caller context (e.g. MDC, Security, Request Attributes) on the submitting thread and restoring/cleaning up on the virtual thread.
+* **Use Case**: Context propagation across thread boundaries.
+* **Code Example**:
+  ```java
+  AsyncTaskDecorator mdcDecorator = operation -> {
+      Map<String, String> callerMdc = MDC.getCopyOfContextMap();
+      return () -> {
+          MDC.setContextMap(callerMdc);
+          try {
+              operation.run();
+          } finally {
+              MDC.clear();
+          }
+      };
+  };
+  ```
 
 ---
 

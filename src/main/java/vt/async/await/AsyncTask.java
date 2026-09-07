@@ -176,7 +176,7 @@ public final class AsyncTask<T> implements Future<T> {
     /**
      * Starts execution of the task's thread if it is in the CREATED state.
      */
-    void start() {
+    public void start() {
         stateLock.lock();
         try {
             if (state == State.CREATED) {
