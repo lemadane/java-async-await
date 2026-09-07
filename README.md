@@ -2,7 +2,7 @@
 
 Switching virtual-threads in your Spring Boot application is not enough. Try Java-Async-Await, A framework-neutral Java library providing virtual-thread `async`/`await` concurrency primitives for standard Java 21+ applications.
 
-Inspired by async/await syntax in other languages, this library does NOT introduce new Java language keywords. Instead, `await(task)` is a blocking operation on the current thread (which is extremely cheap on virtual threads).
+Inspired by async/await syntax in other languages, this library does NOT introduce new Java language keywords. Instead, `await(asyncTask)` is a blocking operation on the current thread (which is extremely cheap on virtual threads).
 
 > [!NOTE]
 > **Project Maturity**: This project is currently in the **Beta** phase. All race and stress tests pass, but api signatures are subject to minor tweaks before stable release.
