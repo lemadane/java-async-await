@@ -1,6 +1,6 @@
 # Migration Guide
 
-This document describes the changes required when migrating from `0.1.0-alpha.1` to `0.1.0-alpha.2`.
+This document describes the changes required when migrating from `0.1.0-beta.1` to `0.1.0-beta.1`.
 
 ## 1. Exception Handling for Awaiting Interruption
 

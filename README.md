@@ -21,7 +21,7 @@ Inspired by async/await syntax in other languages, this library does NOT introdu
 ## Installation
 
 > [!NOTE]
-> **Pre-release & Local Testing**: `0.1.0-alpha.2` is currently in pre-release state. To test before the release tag workflow finishes publishing to Maven Central, run `./gradlew publishToMavenLocal` and include `mavenLocal()` in your repositories block.
+> **Pre-release & Local Testing**: `0.1.0-beta.1` is currently in pre-release state. To test before the release tag workflow finishes publishing to Maven Central, run `./gradlew publishToMavenLocal` and include `mavenLocal()` in your repositories block.
 
 ### Gradle (Groovy)
 
@@ -32,7 +32,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'vt.async.await:vt-async-await:0.1.0-alpha.2'
+    implementation 'vt.async.await:vt-async-await:0.1.0-beta.1'
 }
 ```
 
@@ -42,7 +42,7 @@ dependencies {
 <dependency>
     <groupId>vt.async.await</groupId>
     <artifactId>vt-async-await</artifactId>
-    <version>0.1.0-alpha.2</version>
+    <version>0.1.0-beta.1</version>
 </dependency>
 ```
 
@@ -81,7 +81,7 @@ public class CustomerDashboard {
 **Gradle (Groovy):**
 ```groovy
 dependencies {
-    implementation 'vt.async.await:vt-async-await-spring-boot-starter:0.1.0-alpha.2'
+    implementation 'vt.async.await:vt-async-await-spring-boot-starter:0.1.0-beta.1'
 }
 ```
 
@@ -90,7 +90,7 @@ dependencies {
 <dependency>
     <groupId>vt.async.await</groupId>
     <artifactId>vt-async-await-spring-boot-starter</artifactId>
-    <version>0.1.0-alpha.2</version>
+    <version>0.1.0-beta.1</version>
 </dependency>
 ```
 
