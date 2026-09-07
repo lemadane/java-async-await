@@ -1,4 +1,4 @@
-# Java VT-Async-Await Concurrency Library
+# Java-VT-Async-Await Concurrency Library
 
 Switching virtual-threads in your Spring Boot application is not enough. Try Java-Async-Await, A framework-neutral Java library providing virtual-thread `async`/`await` concurrency primitives for standard Java 21+ applications.
 
