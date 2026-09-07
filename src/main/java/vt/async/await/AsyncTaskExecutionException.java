@@ -3,7 +3,7 @@ package vt.async.await;
 /**
  * Exception thrown when an asynchronous task fails with a checked exception.
  */
-public final class TaskExecutionException extends RuntimeException {
+public final class AsyncTaskExecutionException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -11,7 +11,7 @@ public final class TaskExecutionException extends RuntimeException {
      *
      * @param cause the underlying cause
      */
-    public TaskExecutionException(Throwable cause) {
+    public AsyncTaskExecutionException(Throwable cause) {
         super(cause != null ? cause.getMessage() : null, cause);
     }
 
@@ -21,7 +21,7 @@ public final class TaskExecutionException extends RuntimeException {
      * @param message the detail message
      * @param cause the underlying cause
      */
-    public TaskExecutionException(String message, Throwable cause) {
+    public AsyncTaskExecutionException(String message, Throwable cause) {
         super(message, cause);
     }
 }

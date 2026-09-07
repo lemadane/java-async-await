@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 public final class AsyncRuntime implements AutoCloseable {
 
     private final String threadNamePrefix;
-    private final TaskDecorator taskDecorator;
+    private final AsyncTaskDecorator taskDecorator;
     private final Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
     private final VirtualThreadLauncher launcher;
     private final ExecutorService executorService;
@@ -50,10 +50,10 @@ public final class AsyncRuntime implements AutoCloseable {
      *
      * @param <T> the result type
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      * @throws IllegalStateException if the runtime is shut down
      */
-    public <T> Task<T> async(Callable<? extends T> operation) {
+    public <T> AsyncTask<T> async(Callable<? extends T> operation) {
         return async(null, operation);
     }
 
@@ -63,11 +63,11 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param <T> the result type
      * @param taskName logical name for the task
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      * @throws IllegalStateException if the runtime is shut down
      */
-    public <T> Task<T> async(String taskName, Callable<? extends T> operation) {
-        Task<T> task = createUnstartedTask(taskName, operation);
+    public <T> AsyncTask<T> async(String taskName, Callable<? extends T> operation) {
+        AsyncTask<T> task = createUnstartedTask(taskName, operation);
         task.start();
         return task;
     }
@@ -78,10 +78,10 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param <T> the result type
      * @param taskName logical name for the task
      * @param operation the operation to execute
-     * @return an unstarted Task representing the operation
+     * @return an unstarted AsyncTask representing the operation
      * @throws IllegalStateException if the runtime is shut down
      */
-    public <T> Task<T> createUnstartedTask(String taskName, Callable<? extends T> operation) {
+    public <T> AsyncTask<T> createUnstartedTask(String taskName, Callable<? extends T> operation) {
         ensureNotShutdown();
         Objects.requireNonNull(operation, "operation");
 
@@ -101,7 +101,7 @@ public final class AsyncRuntime implements AutoCloseable {
 
         OperationRunner runner = new OperationRunner();
         Runnable decoratedRunnable = taskDecorator.decorate(runner);
-        Objects.requireNonNull(decoratedRunnable, "TaskDecorator returned a null Runnable");
+        Objects.requireNonNull(decoratedRunnable, "AsyncTaskDecorator returned a null Runnable");
 
         Callable<T> callable = () -> {
             Throwable setupOrCleanupException = null;
@@ -125,22 +125,22 @@ public final class AsyncRuntime implements AutoCloseable {
             return runner.value;
         };
 
-        Task<T> task;
+        AsyncTask<T> task;
         if (executorService != null) {
-            java.util.function.Function<Task<T>, Runnable> startActionFactory = (t) -> () -> {
+            java.util.function.Function<AsyncTask<T>, Runnable> startActionFactory = (t) -> () -> {
                 executorService.execute(() -> {
                     t.setExecutingThread(Thread.currentThread());
                     t.futureTask().run();
                 });
             };
-            task = new Task<>(taskName, callable, null, startActionFactory);
+            task = new AsyncTask<>(taskName, callable, null, startActionFactory);
         } else {
-            java.util.function.Function<Task<T>, Runnable> startActionFactory = (t) -> {
+            java.util.function.Function<AsyncTask<T>, Runnable> startActionFactory = (t) -> {
                 Thread thread = launcher.createUnstarted(taskName, t.futureTask());
                 t.setExecutingThread(thread);
                 return () -> thread.start();
             };
-            task = new Task<>(taskName, callable, null, startActionFactory);
+            task = new AsyncTask<>(taskName, callable, null, startActionFactory);
         }
         return task;
     }
@@ -159,10 +159,10 @@ public final class AsyncRuntime implements AutoCloseable {
      * Submits a runnable operation for immediate execution.
      *
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      * @throws IllegalStateException if the runtime is shut down
      */
-    public Task<Void> async(Runnable operation) {
+    public AsyncTask<Void> async(Runnable operation) {
         return async(null, operation);
     }
 
@@ -171,10 +171,10 @@ public final class AsyncRuntime implements AutoCloseable {
      *
      * @param taskName logical name for the task
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      * @throws IllegalStateException if the runtime is shut down
      */
-    public Task<Void> async(String taskName, Runnable operation) {
+    public AsyncTask<Void> async(String taskName, Runnable operation) {
         Objects.requireNonNull(operation, "operation");
         return async(taskName, () -> {
             operation.run();
@@ -189,7 +189,7 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param task the task to await
      * @return the result of the task
      */
-    public <T> T await(Task<T> task) {
+    public <T> T await(AsyncTask<T> task) {
         Objects.requireNonNull(task, "task");
         return task.await();
     }
@@ -202,7 +202,7 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param timeout maximum duration to wait
      * @return the result of the task
      */
-    public <T> T await(Task<T> task, Duration timeout) {
+    public <T> T await(AsyncTask<T> task, Duration timeout) {
         Objects.requireNonNull(task, "task");
         return task.await(timeout);
     }
@@ -215,23 +215,23 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param timeout maximum duration to wait
      * @return the result of the task
      */
-    public <T> T awaitAndCancel(Task<T> task, Duration timeout) {
+    public <T> T awaitAndCancel(AsyncTask<T> task, Duration timeout) {
         Objects.requireNonNull(task, "task");
         try {
             return await(task, timeout);
-        } catch (TaskTimeoutException e) {
+        } catch (AsyncTaskTimeoutException e) {
             task.cancel(true);
             throw e;
         }
     }
 
     /**
-     * Creates a new structured {@link TaskScope} bound to this runtime.
+     * Creates a new structured {@link AsyncTaskScope} bound to this runtime.
      *
-     * @return a new TaskScope
+     * @return a new AsyncTaskScope
      */
-    public TaskScope scope() {
-        return new TaskScope(this);
+    public AsyncTaskScope scope() {
+        return new AsyncTaskScope(this);
     }
 
     /**
@@ -273,7 +273,7 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param tasks the tasks collection
      * @return the list of results in the same order as the inputs
      */
-    public <T> List<T> all(Collection<Task<? extends T>> tasks) {
+    public <T> List<T> all(Collection<AsyncTask<? extends T>> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return java.util.Collections.emptyList();
         }
@@ -281,15 +281,15 @@ public final class AsyncRuntime implements AutoCloseable {
         CountDownLatch latch = new CountDownLatch(tasks.size());
         java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
 
-        for (Task<? extends T> task : tasks) {
+        for (AsyncTask<? extends T> task : tasks) {
             task.onComplete(() -> {
-                Task.State state = task.lifecycleState();
-                if (state == Task.State.FAILED) {
+                AsyncTask.State state = task.lifecycleState();
+                if (state == AsyncTask.State.FAILED) {
                     try {
                         task.await();
                     } catch (Throwable t) {
                         if (failure.compareAndSet(null, t)) {
-                            for (Task<? extends T> other : tasks) {
+                            for (AsyncTask<? extends T> other : tasks) {
                                 if (other != task) {
                                     other.cancel(true);
                                 }
@@ -300,10 +300,10 @@ public final class AsyncRuntime implements AutoCloseable {
                             }
                         }
                     }
-                } else if (state == Task.State.CANCELLED) {
-                    java.util.concurrent.CancellationException ce = new java.util.concurrent.CancellationException("Task " + task.name() + " was cancelled");
+                } else if (state == AsyncTask.State.CANCELLED) {
+                    java.util.concurrent.CancellationException ce = new java.util.concurrent.CancellationException("AsyncTask " + task.name() + " was cancelled");
                     if (failure.compareAndSet(null, ce)) {
-                        for (Task<? extends T> other : tasks) {
+                        for (AsyncTask<? extends T> other : tasks) {
                             if (other != task) {
                                 other.cancel(true);
                             }
@@ -323,7 +323,7 @@ public final class AsyncRuntime implements AutoCloseable {
             latch.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new TaskInterruptedException("Awaiting thread was interrupted", e);
+            throw new AsyncTaskInterruptedException("Awaiting thread was interrupted", e);
         }
 
         Throwable t = failure.get();
@@ -334,11 +334,11 @@ public final class AsyncRuntime implements AutoCloseable {
             if (t instanceof Error error) {
                 throw error;
             }
-            throw new TaskExecutionException(t);
+            throw new AsyncTaskExecutionException(t);
         }
 
         List<T> results = new java.util.ArrayList<>(tasks.size());
-        for (Task<? extends T> task : tasks) {
+        for (AsyncTask<? extends T> task : tasks) {
             results.add(task.await());
         }
         return results;
@@ -352,7 +352,7 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param tasks the tasks collection
      * @return the first successful result
      */
-    public <T> T any(Collection<Task<? extends T>> tasks) {
+    public <T> T any(Collection<AsyncTask<? extends T>> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             throw new IllegalArgumentException("Tasks collection cannot be null or empty");
         }
@@ -362,15 +362,15 @@ public final class AsyncRuntime implements AutoCloseable {
         java.util.concurrent.atomic.AtomicBoolean hasSuccess = new java.util.concurrent.atomic.AtomicBoolean(false);
         java.util.List<Throwable> failures = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
-        for (Task<? extends T> task : tasks) {
+        for (AsyncTask<? extends T> task : tasks) {
             task.onComplete(() -> {
-                Task.State state = task.lifecycleState();
-                if (state == Task.State.SUCCESS) {
+                AsyncTask.State state = task.lifecycleState();
+                if (state == AsyncTask.State.SUCCESS) {
                     try {
                         T value = task.await();
                         if (hasSuccess.compareAndSet(false, true)) {
                             successValue.set(value);
-                            for (Task<? extends T> other : tasks) {
+                            for (AsyncTask<? extends T> other : tasks) {
                                 if (other != task) {
                                     other.cancel(true);
                                 }
@@ -399,7 +399,7 @@ public final class AsyncRuntime implements AutoCloseable {
             latch.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new TaskInterruptedException("Awaiting thread was interrupted", e);
+            throw new AsyncTaskInterruptedException("Awaiting thread was interrupted", e);
         }
 
         if (hasSuccess.get()) {
@@ -417,18 +417,18 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param tasks the tasks collection
      * @return the result of the first completed task
      */
-    public <T> T race(Collection<Task<? extends T>> tasks) {
+    public <T> T race(Collection<AsyncTask<? extends T>> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             throw new IllegalArgumentException("Tasks collection cannot be null or empty");
         }
 
         CountDownLatch latch = new CountDownLatch(1);
-        java.util.concurrent.atomic.AtomicReference<Task<? extends T>> firstCompleted = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<AsyncTask<? extends T>> firstCompleted = new java.util.concurrent.atomic.AtomicReference<>();
 
-        for (Task<? extends T> task : tasks) {
+        for (AsyncTask<? extends T> task : tasks) {
             task.onComplete(() -> {
                 if (firstCompleted.compareAndSet(null, task)) {
-                    for (Task<? extends T> other : tasks) {
+                    for (AsyncTask<? extends T> other : tasks) {
                         if (other != task) {
                             other.cancel(true);
                         }
@@ -442,10 +442,10 @@ public final class AsyncRuntime implements AutoCloseable {
             latch.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new TaskInterruptedException("Awaiting thread was interrupted", e);
+            throw new AsyncTaskInterruptedException("Awaiting thread was interrupted", e);
         }
 
-        Task<? extends T> completed = firstCompleted.get();
+        AsyncTask<? extends T> completed = firstCompleted.get();
         return completed.await();
     }
 
@@ -457,14 +457,14 @@ public final class AsyncRuntime implements AutoCloseable {
      * @param tasks the tasks collection
      * @return the input collection of tasks after all have completed
      */
-    public <T> Collection<Task<? extends T>> allSettled(Collection<Task<? extends T>> tasks) {
+    public <T> Collection<AsyncTask<? extends T>> allSettled(Collection<AsyncTask<? extends T>> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return java.util.Collections.emptyList();
         }
 
         CountDownLatch latch = new CountDownLatch(tasks.size());
 
-        for (Task<? extends T> task : tasks) {
+        for (AsyncTask<? extends T> task : tasks) {
             task.onComplete(latch::countDown);
         }
 
@@ -472,7 +472,7 @@ public final class AsyncRuntime implements AutoCloseable {
             latch.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new TaskInterruptedException("Awaiting thread was interrupted", e);
+            throw new AsyncTaskInterruptedException("Awaiting thread was interrupted", e);
         }
 
         return tasks;
@@ -485,7 +485,7 @@ public final class AsyncRuntime implements AutoCloseable {
      */
     public static final class Builder {
         private String threadNamePrefix = "vt-task-";
-        private TaskDecorator taskDecorator = TaskDecorator.identity();
+        private AsyncTaskDecorator taskDecorator = AsyncTaskDecorator.identity();
         private Thread.UncaughtExceptionHandler uncaughtExceptionHandler = (t, e) -> {};
         private ExecutorService executorService;
         private boolean ownsExecutor = false;
@@ -510,7 +510,7 @@ public final class AsyncRuntime implements AutoCloseable {
          * @param decorator the decorator
          * @return this builder
          */
-        public Builder taskDecorator(TaskDecorator decorator) {
+        public Builder taskDecorator(AsyncTaskDecorator decorator) {
             this.taskDecorator = Objects.requireNonNull(decorator, "decorator");
             return this;
         }

@@ -1,7 +1,7 @@
 package vt.async.await;
 
 /**
- * Functional interface representing an operation executed within a {@link TaskScope}.
+ * Functional interface representing an operation executed within a {@link AsyncTaskScope}.
  *
  * @param <T> the result type
  */
@@ -15,5 +15,5 @@ public interface ScopedOperation<T> {
      * @return the result of the operation
      * @throws Exception if unable to compute a result
      */
-    T run(TaskScope scope) throws Exception;
+    T run(AsyncTaskScope scope) throws Exception;
 }

@@ -22,7 +22,7 @@ class ConcurrencyStressTest {
     void testScopeAsyncCloseRace() throws Exception {
         int iterations = getIterations();
         for (int i = 0; i < iterations; i++) {
-            TaskScope scope = VT.scope();
+            AsyncTaskScope scope = VT.scope();
             CountDownLatch startClose = new CountDownLatch(1);
             Thread closer = Thread.ofVirtual().start(() -> {
                 try {
@@ -52,7 +52,7 @@ class ConcurrencyStressTest {
         int iterations = getIterations();
         for (int i = 0; i < iterations; i++) {
             CountDownLatch started = new CountDownLatch(1);
-            Task<String> task = VT.async(() -> {
+            AsyncTask<String> task = VT.async(() -> {
                 started.countDown();
                 return "result";
             });
@@ -72,11 +72,11 @@ class ConcurrencyStressTest {
     void testTimeoutCompleteRace() throws Exception {
         int iterations = getIterations();
         for (int i = 0; i < iterations; i++) {
-            Task<String> task = VT.async(() -> "result");
+            AsyncTask<String> task = VT.async(() -> "result");
             Thread timeouts = Thread.ofVirtual().start(() -> {
                 try {
                     VT.await(task, Duration.ofNanos(1));
-                } catch (TaskTimeoutException e) {
+                } catch (AsyncTaskTimeoutException e) {
                     // Expected
                 }
             });
@@ -92,7 +92,7 @@ class ConcurrencyStressTest {
     @Test
     void testThousandsOfShortTasks() throws Exception {
         int count = getIterations();
-        Task<?>[] tasks = new Task<?>[count];
+        AsyncTask<?>[] tasks = new AsyncTask<?>[count];
         for (int i = 0; i < count; i++) {
             tasks[i] = VT.async(() -> "val");
         }
@@ -104,7 +104,7 @@ class ConcurrencyStressTest {
     @Test
     void testConcurrentCallsToAwait() throws Exception {
         int count = 100;
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             Thread.sleep(50);
             return "val";
         });
@@ -156,7 +156,7 @@ class ConcurrencyStressTest {
     void testContextIsolationUnderHighConcurrency() throws Exception {
         int count = getIterations();
         ThreadLocal<String> threadLocal = new ThreadLocal<>();
-        TaskDecorator decorator = op -> {
+        AsyncTaskDecorator decorator = op -> {
             String context = threadLocal.get();
             return () -> {
                 String prev = threadLocal.get();
@@ -172,7 +172,7 @@ class ConcurrencyStressTest {
                 .taskDecorator(decorator)
                 .build();
 
-        Task<?>[] tasks = new Task<?>[count];
+        AsyncTask<?>[] tasks = new AsyncTask<?>[count];
         for (int i = 0; i < count; i++) {
             threadLocal.set("context-" + i);
             final int index = i;
@@ -194,7 +194,7 @@ class ConcurrencyStressTest {
         int iterations = getIterations();
         for (int i = 0; i < iterations; i++) {
             CountDownLatch started = new CountDownLatch(1);
-            Task<String> task = VT.async(() -> {
+            AsyncTask<String> task = VT.async(() -> {
                 started.countDown();
                 throw new RuntimeException("fail");
             });
@@ -215,7 +215,7 @@ class ConcurrencyStressTest {
         int iterations = getIterations();
         for (int i = 0; i < iterations; i++) {
             AsyncRuntime runtime = AsyncRuntime.builder().build();
-            Task<String> task = runtime.createUnstartedTask("race", () -> "ok");
+            AsyncTask<String> task = runtime.createUnstartedTask("race", () -> "ok");
 
             java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger(0);
             CountDownLatch listenerLatch = new CountDownLatch(1);
@@ -254,7 +254,7 @@ class ConcurrencyStressTest {
             decorator.setupFailed.set(true);
             AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
 
-            Task<String> task = runtime.createUnstartedTask("race", () -> "ok");
+            AsyncTask<String> task = runtime.createUnstartedTask("race", () -> "ok");
 
             Thread canceller = Thread.ofVirtual().start(() -> {
                 task.cancel(true);
@@ -283,14 +283,14 @@ class ConcurrencyStressTest {
         int iterations = getIterations();
         for (int i = 0; i < iterations; i++) {
             AsyncRuntime runtime = AsyncRuntime.builder().build();
-            Task<String> task = runtime.async(() -> "value");
+            AsyncTask<String> task = runtime.async(() -> "value");
 
             assertEquals("value", runtime.await(task));
 
             // Immediately check status
             assertTrue(task.isDone(), "task.isDone() must be true immediately after await returns");
-            assertNotEquals(Task.State.RUNNING, task.lifecycleState(), "task state must not be RUNNING after await returns");
-            assertNotEquals(Task.State.CREATED, task.lifecycleState(), "task state must not be CREATED after await returns");
+            assertNotEquals(AsyncTask.State.RUNNING, task.lifecycleState(), "task state must not be RUNNING after await returns");
+            assertNotEquals(AsyncTask.State.CREATED, task.lifecycleState(), "task state must not be CREATED after await returns");
 
             runtime.close();
         }

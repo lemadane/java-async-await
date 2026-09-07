@@ -16,19 +16,19 @@ class ComprehensiveTest {
 
     @Test
     void testSuccessfulResult() {
-        Task<String> task = VT.async(() -> "success");
+        AsyncTask<String> task = VT.async(() -> "success");
         assertEquals("success", VT.await(task));
     }
 
     @Test
     void testNullResult() {
-        Task<Void> task = VT.async(() -> null);
+        AsyncTask<Void> task = VT.async(() -> null);
         assertNull(VT.await(task));
     }
 
     @Test
     void testRuntimeException() {
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             throw new IllegalArgumentException("runtime exception");
         });
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> VT.await(task));
@@ -37,17 +37,17 @@ class ComprehensiveTest {
 
     @Test
     void testCheckedException() {
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             throw new IOException("checked exception");
         });
-        TaskExecutionException ex = assertThrows(TaskExecutionException.class, () -> VT.await(task));
+        AsyncTaskExecutionException ex = assertThrows(AsyncTaskExecutionException.class, () -> VT.await(task));
         assertInstanceOf(IOException.class, ex.getCause());
         assertEquals("checked exception", ex.getCause().getMessage());
     }
 
     @Test
     void testErrorRethrown() {
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             throw new StackOverflowError("error");
         });
         StackOverflowError err = assertThrows(StackOverflowError.class, () -> VT.await(task));
@@ -57,11 +57,11 @@ class ComprehensiveTest {
     @Test
     void testCancellationBeforeStart() throws Exception {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.createUnstartedTask("unstarted", () -> "ok");
+        AsyncTask<String> task = runtime.createUnstartedTask("unstarted", () -> "ok");
         assertTrue(task.cancel(true));
         assertTrue(task.isCancelled());
         assertTrue(task.isDone());
-        assertEquals(Task.State.CANCELLED, task.lifecycleState());
+        assertEquals(AsyncTask.State.CANCELLED, task.lifecycleState());
 
         task.start(); // Should do nothing
         assertThrows(CancellationException.class, task::await);
@@ -72,7 +72,7 @@ class ComprehensiveTest {
     void testCancellationWhileRunning() throws Exception {
         CountDownLatch running = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             running.countDown();
             release.await();
             return "never";
@@ -81,14 +81,14 @@ class ComprehensiveTest {
         assertTrue(task.cancel(true));
         assertTrue(task.isCancelled());
         assertTrue(task.isDone());
-        assertEquals(Task.State.CANCELLED, task.lifecycleState());
+        assertEquals(AsyncTask.State.CANCELLED, task.lifecycleState());
         assertThrows(CancellationException.class, task::await);
         release.countDown();
     }
 
     @Test
     void testCancellationAfterCompletion() {
-        Task<String> task = VT.async(() -> "completed");
+        AsyncTask<String> task = VT.async(() -> "completed");
         assertEquals("completed", VT.await(task));
         assertFalse(task.cancel(true));
         assertFalse(task.isCancelled());
@@ -99,7 +99,7 @@ class ComprehensiveTest {
     void testMultipleCancellationAttempts() throws Exception {
         CountDownLatch running = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             running.countDown();
             release.await();
             return "never";
@@ -112,7 +112,7 @@ class ComprehensiveTest {
 
     @Test
     void testMultipleAwaits() {
-        Task<String> task = VT.async(() -> "val");
+        AsyncTask<String> task = VT.async(() -> "val");
         assertEquals("val", VT.await(task));
         assertEquals("val", VT.await(task));
     }
@@ -121,7 +121,7 @@ class ComprehensiveTest {
     void testConcurrentAwaits() throws Exception {
         CountDownLatch running = new CountDownLatch(1);
         CountDownLatch startAwait = new CountDownLatch(1);
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             running.countDown();
             Thread.sleep(100);
             return "val";
@@ -149,7 +149,7 @@ class ComprehensiveTest {
 
     @Test
     void testAwaitAfterCancellation() {
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             Thread.sleep(5000);
             return "never";
         });
@@ -159,7 +159,7 @@ class ComprehensiveTest {
 
     @Test
     void testAwaitAfterFailure() {
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             throw new RuntimeException("failed");
         });
         RuntimeException ex = assertThrows(RuntimeException.class, () -> VT.await(task));
@@ -170,7 +170,7 @@ class ComprehensiveTest {
 
     @Test
     void testAwaitAfterSuccess() {
-        Task<String> task = VT.async(() -> "success");
+        AsyncTask<String> task = VT.async(() -> "success");
         assertEquals("success", VT.await(task));
         assertEquals("success", VT.await(task));
     }
@@ -186,15 +186,15 @@ class ComprehensiveTest {
 
     @Test
     void testCloseEmptyScope() {
-        try (TaskScope scope = VT.scope()) {
+        try (AsyncTaskScope scope = VT.scope()) {
             assertFalse(scope.isClosed());
         }
     }
 
     @Test
     void testCloseScopeWithCompletedTasks() {
-        try (TaskScope scope = VT.scope()) {
-            Task<String> task = scope.async(() -> "done");
+        try (AsyncTaskScope scope = VT.scope()) {
+            AsyncTask<String> task = scope.async(() -> "done");
             assertEquals("done", scope.await(task));
         }
     }
@@ -204,8 +204,8 @@ class ComprehensiveTest {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interruptedLatch = new CountDownLatch(1);
         AtomicBoolean interrupted = new AtomicBoolean(false);
-        Task<Void> child;
-        try (TaskScope scope = VT.scope()) {
+        AsyncTask<Void> child;
+        try (AsyncTaskScope scope = VT.scope()) {
             child = scope.async(() -> {
                 started.countDown();
                 try {
@@ -224,7 +224,7 @@ class ComprehensiveTest {
 
     @Test
     void testCloseScopeMultipleTimesIdempotent() {
-        TaskScope scope = VT.scope();
+        AsyncTaskScope scope = VT.scope();
         scope.close();
         assertTrue(scope.isClosed());
         scope.close(); // safe and idempotent
@@ -232,17 +232,17 @@ class ComprehensiveTest {
 
     @Test
     void testSubmitAfterCloseFails() {
-        TaskScope scope = VT.scope();
+        AsyncTaskScope scope = VT.scope();
         scope.close();
         assertThrows(IllegalStateException.class, () -> scope.async(() -> "fail"));
     }
 
     @Test
     void testNestedScopesBehaveIndependently() {
-        try (TaskScope parent = VT.scope()) {
-            Task<String> parentTask = parent.async(() -> "parent");
-            try (TaskScope child = VT.scope()) {
-                Task<String> childTask = child.async(() -> "child");
+        try (AsyncTaskScope parent = VT.scope()) {
+            AsyncTask<String> parentTask = parent.async(() -> "parent");
+            try (AsyncTaskScope child = VT.scope()) {
+                AsyncTask<String> childTask = child.async(() -> "child");
                 assertEquals("child", child.await(childTask));
             }
             assertEquals("parent", parent.await(parentTask));
@@ -252,7 +252,7 @@ class ComprehensiveTest {
     @Test
     void testScopeDeadlockFreeWhenClosedFromInsideChildTask() throws Exception {
         CountDownLatch closeDone = new CountDownLatch(1);
-        TaskScope scope = VT.scope();
+        AsyncTaskScope scope = VT.scope();
         try {
             scope.async(() -> {
                 scope.close();
@@ -268,15 +268,15 @@ class ComprehensiveTest {
     void testAwaitTimeoutWithoutCancellation() throws Exception {
         CountDownLatch running = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        Task<String> task = VT.async("slow", () -> {
+        AsyncTask<String> task = VT.async("slow", () -> {
             running.countDown();
             release.await();
             return "done";
         });
         assertTrue(running.await(2, TimeUnit.SECONDS));
 
-        assertThrows(TaskTimeoutException.class, () -> VT.await(task, Duration.ofMillis(50)));
-        assertTrue(task.isRunning()); // Task is still running!
+        assertThrows(AsyncTaskTimeoutException.class, () -> VT.await(task, Duration.ofMillis(50)));
+        assertTrue(task.isRunning()); // AsyncTask is still running!
 
         release.countDown();
         assertEquals("done", VT.await(task));
@@ -285,20 +285,20 @@ class ComprehensiveTest {
     @Test
     void testAwaitTimeoutWithCancellation() throws Exception {
         CountDownLatch running = new CountDownLatch(1);
-        Task<String> task = VT.async("slow", () -> {
+        AsyncTask<String> task = VT.async("slow", () -> {
             running.countDown();
             Thread.sleep(5000);
             return "done";
         });
         assertTrue(running.await(2, TimeUnit.SECONDS));
 
-        assertThrows(TaskTimeoutException.class, () -> VT.awaitAndCancel(task, Duration.ofMillis(50)));
-        assertTrue(task.isCancelled()); // Task was cancelled!
+        assertThrows(AsyncTaskTimeoutException.class, () -> VT.awaitAndCancel(task, Duration.ofMillis(50)));
+        assertTrue(task.isCancelled()); // AsyncTask was cancelled!
     }
 
     @Test
     void testInvalidTimeoutDurations() {
-        Task<String> task = VT.async(() -> "val");
+        AsyncTask<String> task = VT.async(() -> "val");
         assertThrows(IllegalArgumentException.class, () -> VT.await(task, Duration.ofMillis(-5)));
     }
 
@@ -306,7 +306,7 @@ class ComprehensiveTest {
     void testAwaitingThreadInterrupted() throws Exception {
         CountDownLatch running = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             running.countDown();
             release.await();
             return "done";
@@ -317,7 +317,7 @@ class ComprehensiveTest {
         Thread awaiter = Thread.ofVirtual().start(() -> {
             try {
                 VT.await(task);
-            } catch (TaskInterruptedException e) {
+            } catch (AsyncTaskInterruptedException e) {
                 interruptedThrown.countDown();
             }
         });
@@ -329,11 +329,11 @@ class ComprehensiveTest {
 
     @Test
     void testChildTaskThrowsInterruptedExceptionDoesNotInterruptAwaitingThread() {
-        Task<String> task = VT.async(() -> {
+        AsyncTask<String> task = VT.async(() -> {
             throw new InterruptedException("child interrupted");
         });
 
-        TaskExecutionException ex = assertThrows(TaskExecutionException.class, () -> VT.await(task));
+        AsyncTaskExecutionException ex = assertThrows(AsyncTaskExecutionException.class, () -> VT.await(task));
         assertInstanceOf(InterruptedException.class, ex.getCause());
         assertFalse(Thread.currentThread().isInterrupted()); // Awaiting thread is NOT interrupted!
     }
@@ -341,11 +341,11 @@ class ComprehensiveTest {
     @Test
     void testDecoratorCompositionAndOrder() {
         AtomicReference<String> order = new AtomicReference<>("");
-        TaskDecorator d1 = op -> () -> {
+        AsyncTaskDecorator d1 = op -> () -> {
             order.accumulateAndGet("1", (o, n) -> o + n);
             op.run();
         };
-        TaskDecorator d2 = op -> () -> {
+        AsyncTaskDecorator d2 = op -> () -> {
             order.accumulateAndGet("2", (o, n) -> o + n);
             op.run();
         };
@@ -354,7 +354,7 @@ class ComprehensiveTest {
                 .taskDecorator(d1.andThen(d2))
                 .build();
 
-        Task<Void> task = runtime.async(() -> {});
+        AsyncTask<Void> task = runtime.async(() -> {});
         runtime.await(task);
         assertEquals("12", order.get());
         runtime.close();
@@ -362,7 +362,7 @@ class ComprehensiveTest {
 
     @Test
     void testDecoratorFailurePreservesException() {
-        TaskDecorator failingDecorator = op -> {
+        AsyncTaskDecorator failingDecorator = op -> {
             throw new RuntimeException("decorator setup failed");
         };
 

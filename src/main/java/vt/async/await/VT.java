@@ -9,7 +9,7 @@ import java.util.concurrent.Callable;
  *
  * <p>Example usage:
  * <pre>{@code
- * Task<Customer> customerTask = VT.async(() -> customerService.findRequired(id));
+ * AsyncTask<Customer> customerTask = VT.async(() -> customerService.findRequired(id));
  * Customer customer = VT.await(customerTask);
  * }</pre>
  *
@@ -18,7 +18,7 @@ import java.util.concurrent.Callable;
  * import static vt.async.await.VT.async;
  * import static vt.async.await.VT.await;
  *
- * Task<Customer> customerTask = async(() -> customerService.findRequired(id));
+ * AsyncTask<Customer> customerTask = async(() -> customerService.findRequired(id));
  * Customer customer = await(customerTask);
  * }</pre>
  */
@@ -34,9 +34,9 @@ public final class VT {
      *
      * @param <T> the result type
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      */
-    public static <T> Task<T> async(Callable<? extends T> operation) {
+    public static <T> AsyncTask<T> async(Callable<? extends T> operation) {
         return DEFAULT_RUNTIME.async(operation);
     }
 
@@ -46,9 +46,9 @@ public final class VT {
      * @param <T> the result type
      * @param taskName logical name for the task
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      */
-    public static <T> Task<T> async(String taskName, Callable<? extends T> operation) {
+    public static <T> AsyncTask<T> async(String taskName, Callable<? extends T> operation) {
         return DEFAULT_RUNTIME.async(taskName, operation);
     }
 
@@ -56,9 +56,9 @@ public final class VT {
      * Submits a runnable operation for immediate execution on a virtual thread.
      *
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      */
-    public static Task<Void> async(Runnable operation) {
+    public static AsyncTask<Void> async(Runnable operation) {
         return DEFAULT_RUNTIME.async(operation);
     }
 
@@ -67,9 +67,9 @@ public final class VT {
      *
      * @param taskName logical name for the task
      * @param operation the operation to execute
-     * @return a Task representing the running operation
+     * @return a AsyncTask representing the running operation
      */
-    public static Task<Void> async(String taskName, Runnable operation) {
+    public static AsyncTask<Void> async(String taskName, Runnable operation) {
         return DEFAULT_RUNTIME.async(taskName, operation);
     }
 
@@ -80,7 +80,7 @@ public final class VT {
      * @param task the task to await
      * @return the result of the task
      */
-    public static <T> T await(Task<T> task) {
+    public static <T> T await(AsyncTask<T> task) {
         return DEFAULT_RUNTIME.await(task);
     }
 
@@ -92,7 +92,7 @@ public final class VT {
      * @param timeout maximum duration to wait
      * @return the result of the task
      */
-    public static <T> T await(Task<T> task, Duration timeout) {
+    public static <T> T await(AsyncTask<T> task, Duration timeout) {
         return DEFAULT_RUNTIME.await(task, timeout);
     }
 
@@ -104,21 +104,21 @@ public final class VT {
      * @param timeout maximum duration to wait
      * @return the result of the task
      */
-    public static <T> T awaitAndCancel(Task<T> task, Duration timeout) {
+    public static <T> T awaitAndCancel(AsyncTask<T> task, Duration timeout) {
         return DEFAULT_RUNTIME.awaitAndCancel(task, timeout);
     }
 
     /**
-     * Creates a new structured {@link TaskScope} using the default runtime.
+     * Creates a new structured {@link AsyncTaskScope} using the default runtime.
      *
-     * @return a new TaskScope
+     * @return a new AsyncTaskScope
      */
-    public static TaskScope scope() {
+    public static AsyncTaskScope scope() {
         return DEFAULT_RUNTIME.scope();
     }
 
     /**
-     * Executes a scoped operation within an auto-closing {@link TaskScope}.
+     * Executes a scoped operation within an auto-closing {@link AsyncTaskScope}.
      *
      * @param <T> the result type
      * @param operation the operation to execute
@@ -126,12 +126,12 @@ public final class VT {
      */
     public static <T> T scoped(ScopedOperation<T> operation) {
         Objects.requireNonNull(operation, "operation");
-        try (TaskScope scope = scope()) {
+        try (AsyncTaskScope scope = scope()) {
             return operation.run(scope);
         } catch (RuntimeException | Error e) {
             throw e;
         } catch (Exception e) {
-            throw new TaskExecutionException(e);
+            throw new AsyncTaskExecutionException(e);
         }
     }
 
@@ -143,7 +143,7 @@ public final class VT {
      * @param tasks the tasks collection
      * @return the list of results in the same order as the inputs
      */
-    public static <T> java.util.List<T> all(java.util.Collection<Task<? extends T>> tasks) {
+    public static <T> java.util.List<T> all(java.util.Collection<AsyncTask<? extends T>> tasks) {
         return DEFAULT_RUNTIME.all(tasks);
     }
 
@@ -155,7 +155,7 @@ public final class VT {
      * @param tasks the tasks collection
      * @return the first successful result
      */
-    public static <T> T any(java.util.Collection<Task<? extends T>> tasks) {
+    public static <T> T any(java.util.Collection<AsyncTask<? extends T>> tasks) {
         return DEFAULT_RUNTIME.any(tasks);
     }
 
@@ -167,7 +167,7 @@ public final class VT {
      * @param tasks the tasks collection
      * @return the result of the first completed task
      */
-    public static <T> T race(java.util.Collection<Task<? extends T>> tasks) {
+    public static <T> T race(java.util.Collection<AsyncTask<? extends T>> tasks) {
         return DEFAULT_RUNTIME.race(tasks);
     }
 
@@ -179,7 +179,7 @@ public final class VT {
      * @param tasks the tasks collection
      * @return the input collection of tasks after all have completed
      */
-    public static <T> java.util.Collection<Task<? extends T>> allSettled(java.util.Collection<Task<? extends T>> tasks) {
+    public static <T> java.util.Collection<AsyncTask<? extends T>> allSettled(java.util.Collection<AsyncTask<? extends T>> tasks) {
         return DEFAULT_RUNTIME.allSettled(tasks);
     }
 }

@@ -54,14 +54,14 @@ dependencies {
 import static vt.async.await.VT.async;
 import static vt.async.await.VT.await;
 
-import vt.async.await.Task;
+import vt.async.await.AsyncTask;
 
 public class CustomerDashboard {
 
     public Dashboard loadCustomerDashboard(String id) {
         // Immediate parallel submission on virtual threads
-        Task<Customer> customerTask = async(() -> customerService.findRequired(id));
-        Task<List<Order>> ordersTask = async(() -> orderService.findForCustomer(id));
+        AsyncTask<Customer> customerTask = async(() -> customerService.findRequired(id));
+        AsyncTask<List<Order>> ordersTask = async(() -> orderService.findForCustomer(id));
 
         // Await results
         Customer customer = await(customerTask);
@@ -116,11 +116,11 @@ public class DashboardService {
     }
 
     public DashboardResponse getDashboard(String customerId) {
-        try (TaskScope scope = asyncRuntime.scope()) {
-            Task<CustomerDto> customerTask = scope.async("load-customer", 
+        try (AsyncTaskScope scope = asyncRuntime.scope()) {
+            AsyncTask<CustomerDto> customerTask = scope.async("load-customer", 
                     () -> customerClient.fetchCustomer(customerId));
             
-            Task<List<OrderDto>> ordersTask = scope.async("load-orders", 
+            AsyncTask<List<OrderDto>> ordersTask = scope.async("load-orders", 
                     () -> orderClient.fetchOrders(customerId));
 
             // Await both results
@@ -141,12 +141,12 @@ The starter automatically detects and configures context decorators in a determi
 3. **RequestAttributes** (`RequestContextHolder`)
 4. **SecurityContext** (`SecurityContextHolder`)
 
-If you need to configure your own custom `TaskDecorator`, define it as a `@Bean`:
+If you need to configure your own custom `AsyncTaskDecorator`, define it as a `@Bean`:
 ```java
 @Configuration
 public class AsyncConfig {
     @Bean
-    public TaskDecorator customTaskDecorator() {
+    public AsyncTaskDecorator customAsyncTaskDecorator() {
         return operation -> {
             // custom context capture and restore...
             return operation;
@@ -154,7 +154,7 @@ public class AsyncConfig {
     }
 }
 ```
-If a custom `TaskDecorator` bean is present, the default composite autoconfiguration backs off.
+If a custom `AsyncTaskDecorator` bean is present, the default composite autoconfiguration backs off.
 
 ---
 
@@ -167,7 +167,7 @@ We distinguish between two timeout modes:
   ```java
   try {
       Customer customer = VT.await(task, Duration.ofSeconds(2));
-  } catch (TaskTimeoutException e) {
+  } catch (AsyncTaskTimeoutException e) {
       System.out.println("Wait timed out, but task is still running!");
   }
   ```
@@ -175,7 +175,7 @@ We distinguish between two timeout modes:
   ```java
   try {
       Customer customer = VT.awaitAndCancel(task, Duration.ofSeconds(2));
-  } catch (TaskTimeoutException e) {
+  } catch (AsyncTaskTimeoutException e) {
       System.out.println("Wait timed out and task was cancelled!");
   }
   ```
@@ -184,18 +184,18 @@ We distinguish between two timeout modes:
 
 Tasks can be cancelled, which transitions their state to `CANCELLED` and interrupts their thread if running:
 ```java
-Task<Customer> task = async(() -> customerService.findRequired(id));
+AsyncTask<Customer> task = async(() -> customerService.findRequired(id));
 boolean cancelled = task.cancel(true); // returns true if transitioned to CANCELLED
 ```
 
-### Task State & Lifecycle
+### AsyncTask State & Lifecycle
 
-Every `Task` is backed by a `ManagedFutureTask` which serves as the **single authoritative completion source**. The task goes through a strict state machine represented by the `Task.State` enum:
-- `CREATED`: Task instantiated but not yet started (e.g. unstarted tasks).
+Every `AsyncTask` is backed by a `ManagedFutureTask` which serves as the **single authoritative completion source**. The task goes through a strict state machine represented by the `AsyncTask.State` enum:
+- `CREATED`: AsyncTask instantiated but not yet started (e.g. unstarted tasks).
 - `RUNNING`: Virtual thread started and currently executing the task operation.
-- `SUCCESS`: Task completed successfully returning a value (or null).
-- `FAILED`: Task completed with an exception.
-- `CANCELLED`: Task was explicitly cancelled.
+- `SUCCESS`: AsyncTask completed successfully returning a value (or null).
+- `FAILED`: AsyncTask completed with an exception.
+- `CANCELLED`: AsyncTask was explicitly cancelled.
 
 #### Guarantees
 
@@ -208,12 +208,12 @@ Every `Task` is backed by a `ManagedFutureTask` which serves as the **single aut
 - **Thread Safety**: Multiple threads may await/query the same task concurrently and safely.
 
 You can inspect the state in two ways:
-- **Internal State**: `task.lifecycleState()` returns `Task.State`.
+- **Internal State**: `task.lifecycleState()` returns `AsyncTask.State`.
 - **JDK 21 standard**: `task.state()` overrides `Future.state()` and maps the internal state to the standard Java `java.util.concurrent.Future.State` enum.
 
-### TaskScope Concurrency & Safety
+### AsyncTaskScope Concurrency & Safety
 
-The library's `TaskScope` is a lightweight, non-preview alternative to Java's structured concurrency `StructuredTaskScope`. It offers:
+The library's `AsyncTaskScope` is a lightweight, non-preview alternative to Java's structured concurrency `StructuredAsyncTaskScope`. It offers:
 - **Atomic Operations**: Submissions and scope closure are fully synchronized under a lock. Tasks will never leak or start after the scope transitions to closed.
 - **Deadlock-Free Self-Close**: If a task running inside a scope calls `scope.close()` (for example, on a panic/fail-fast path), it does not deadlock waiting for itself.
 - **Automatic Leak Prevention**: Completed child tasks are auto-removed from the scope's internal tracking, preventing unbounded memory growth.
@@ -259,7 +259,7 @@ try {
     VT.async(() -> productService.loadProducts())
   ));
   System.out.println(results);
-} catch (TaskExecutionException e) {
+} catch (AsyncTaskExecutionException e) {
   System.err.println("One of the tasks failed: " + e.getCause());
 }
 ```
@@ -356,13 +356,13 @@ outcomes.forEach(outcome => {
 
 ##### Java Example:
 ```java
-Collection<Task<? extends String>> settled = VT.allSettled(Arrays.asList(
+Collection<AsyncTask<? extends String>> settled = VT.allSettled(Arrays.asList(
   VT.async(() -> loadUsers()),
   VT.async(() -> { throw new RuntimeException("Failed endpoint"); })
 ));
 
-for (Task<? extends String> task : settled) {
-  if (task.lifecycleState() == Task.State.SUCCESS) {
+for (AsyncTask<? extends String> task : settled) {
+  if (task.lifecycleState() == AsyncTask.State.SUCCESS) {
     System.out.println("Success: " + VT.await(task));
   } else {
     System.out.println("Failed: " + task.lifecycleState());
@@ -375,9 +375,9 @@ for (Task<? extends String> task : settled) {
 ## Exception & Interruption Semantics
 
 - **Unchecked Exceptions / Errors**: Propagated directly to the awaiting thread without double-wrapping.
-- **Checked Exceptions**: Wrapped in `TaskExecutionException` preserving the original cause.
-- **Awaiting-Thread Interruption**: Restores the awaiting thread's interrupt flag and throws `TaskInterruptedException`.
-- **Child-Task Interruption**: Wrapped in `TaskExecutionException` as a standard checked exception; does NOT set the interrupt flag of the awaiting thread.
+- **Checked Exceptions**: Wrapped in `AsyncTaskExecutionException` preserving the original cause.
+- **Awaiting-Thread Interruption**: Restores the awaiting thread's interrupt flag and throws `AsyncTaskInterruptedException`.
+- **Child-AsyncTask Interruption**: Wrapped in `AsyncTaskExecutionException` as a standard checked exception; does NOT set the interrupt flag of the awaiting thread.
 
 ---
 
@@ -389,7 +389,7 @@ Unlike traditional asynchronous programming in Java (e.g. `CompletableFuture`), 
 
 ```java
 // Avoid complex callback chaining (e.g. CompletableFuture style):
-Task<String> task = VT.async(() -> loadData())
+AsyncTask<String> task = VT.async(() -> loadData())
                       .thenApply(data -> process(data))
                       .exceptionally(err -> fallback());
 

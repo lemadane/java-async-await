@@ -1,8 +1,8 @@
 package example;
 
 import vt.async.await.AsyncRuntime;
-import vt.async.await.Task;
-import vt.async.await.TaskScope;
+import vt.async.await.AsyncTask;
+import vt.async.await.AsyncTaskScope;
 
 import static vt.async.await.VT.async;
 import static vt.async.await.VT.await;
@@ -10,8 +10,8 @@ import static vt.async.await.VT.await;
 public class JavaAsyncExample {
 
     public static String loadCustomerData(String customerId) {
-        Task<String> profileTask = async("profile-task", () -> "Profile(" + customerId + ")");
-        Task<String> ordersTask = async("orders-task", () -> "Orders(" + customerId + ")");
+        AsyncTask<String> profileTask = async("profile-task", () -> "Profile(" + customerId + ")");
+        AsyncTask<String> ordersTask = async("orders-task", () -> "Orders(" + customerId + ")");
 
         return await(profileTask) + " + " + await(ordersTask);
     }
@@ -21,9 +21,9 @@ public class JavaAsyncExample {
                 .threadNamePrefix("booking-task-")
                 .build();
 
-        try (TaskScope scope = customRuntime.scope()) {
-            Task<String> customerTask = scope.async("load-customer", () -> "Customer(" + customerId + ")");
-            Task<String> pointsTask = scope.async("load-points", () -> "Points(100)");
+        try (AsyncTaskScope scope = customRuntime.scope()) {
+            AsyncTask<String> customerTask = scope.async("load-customer", () -> "Customer(" + customerId + ")");
+            AsyncTask<String> pointsTask = scope.async("load-points", () -> "Points(100)");
 
             return scope.await(customerTask) + " + " + scope.await(pointsTask);
         }

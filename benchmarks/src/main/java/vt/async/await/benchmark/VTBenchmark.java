@@ -1,8 +1,8 @@
 package vt.async.await.benchmark;
 
 import vt.async.await.AsyncRuntime;
-import vt.async.await.Task;
-import vt.async.await.TaskScope;
+import vt.async.await.AsyncTask;
+import vt.async.await.AsyncTaskScope;
 import vt.async.await.VT;
 import org.openjdk.jmh.annotations.*;
 
@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * JMH Benchmark comparing direct virtual thread creation, static VT facade,
- * AsyncRuntime, and TaskScope.
+ * AsyncRuntime, and AsyncTaskScope.
  */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -52,7 +52,7 @@ public class VTBenchmark {
      */
     @Benchmark
     public Object staticVTAsyncAwait() {
-        Task<String> task = VT.async(() -> "result");
+        AsyncTask<String> task = VT.async(() -> "result");
         return VT.await(task);
     }
 
@@ -61,17 +61,17 @@ public class VTBenchmark {
      */
     @Benchmark
     public Object runtimeAsyncAwait() {
-        Task<String> task = runtime.async(() -> "result");
+        AsyncTask<String> task = runtime.async(() -> "result");
         return runtime.await(task);
     }
 
     /**
-     * Measures scoped async submission and awaiting within an AutoCloseable TaskScope.
+     * Measures scoped async submission and awaiting within an AutoCloseable AsyncTaskScope.
      */
     @Benchmark
     public Object scopedAsyncAwait() {
-        try (TaskScope scope = runtime.scope()) {
-            Task<String> task = scope.async(() -> "result");
+        try (AsyncTaskScope scope = runtime.scope()) {
+            AsyncTask<String> task = scope.async(() -> "result");
             return scope.await(task);
         }
     }

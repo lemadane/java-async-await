@@ -7,7 +7,7 @@ package vt.async.await;
  * on the submitted thread and restoring/cleaning up context on the virtual thread.
  */
 @FunctionalInterface
-public interface TaskDecorator {
+public interface AsyncTaskDecorator {
 
     /**
      * Decorates the given runnable operation.
@@ -23,7 +23,7 @@ public interface TaskDecorator {
      * @param after the decorator to run after this one
      * @return the composed decorator
      */
-    default TaskDecorator andThen(TaskDecorator after) {
+    default AsyncTaskDecorator andThen(AsyncTaskDecorator after) {
         java.util.Objects.requireNonNull(after, "after");
         return operation -> this.decorate(after.decorate(operation));
     }
@@ -33,7 +33,7 @@ public interface TaskDecorator {
      *
      * @return the identity decorator
      */
-    static TaskDecorator identity() {
+    static AsyncTaskDecorator identity() {
         return operation -> operation;
     }
 }

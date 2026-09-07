@@ -1,7 +1,7 @@
 package vt.async.await.internal;
 
-import vt.async.await.TaskExecutionException;
-import vt.async.await.TaskInterruptedException;
+import vt.async.await.AsyncTaskExecutionException;
+import vt.async.await.AsyncTaskInterruptedException;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -33,23 +33,23 @@ public final class ExceptionSupport {
             throw error;
         }
         if (cause instanceof InterruptedException interruptedException) {
-            throw new TaskExecutionException("Child task was interrupted", interruptedException);
+            throw new AsyncTaskExecutionException("Child task was interrupted", interruptedException);
         }
         if (cause instanceof CancellationException cancellationException) {
             throw cancellationException;
         }
 
-        throw new TaskExecutionException(cause);
+        throw new AsyncTaskExecutionException(cause);
     }
 
     /**
      * Handles an InterruptedException during await.
      *
      * @param interruptedException the exception
-     * @return TaskInterruptedException with interrupted cause attached
+     * @return AsyncTaskInterruptedException with interrupted cause attached
      */
-    public static TaskInterruptedException handleInterrupted(InterruptedException interruptedException) {
+    public static AsyncTaskInterruptedException handleInterrupted(InterruptedException interruptedException) {
         Thread.currentThread().interrupt();
-        return new TaskInterruptedException("Awaiting thread was interrupted", interruptedException);
+        return new AsyncTaskInterruptedException("Awaiting thread was interrupted", interruptedException);
     }
 }

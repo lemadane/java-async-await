@@ -1,13 +1,13 @@
 package vt.async.await.spring;
 
-import vt.async.await.TaskDecorator;
+import vt.async.await.AsyncTaskDecorator;
 import org.slf4j.MDC;
 import java.util.Map;
 
 /**
- * Task decorator for SLF4J MDC context propagation.
+ * AsyncTask decorator for SLF4J MDC context propagation.
  */
-public final class MdcTaskDecorator implements TaskDecorator {
+public final class MdcAsyncTaskDecorator implements AsyncTaskDecorator {
 
     @Override
     public Runnable decorate(Runnable operation) {

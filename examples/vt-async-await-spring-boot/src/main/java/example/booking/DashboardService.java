@@ -1,8 +1,8 @@
 package example.booking;
 
 import vt.async.await.AsyncRuntime;
-import vt.async.await.Task;
-import vt.async.await.TaskScope;
+import vt.async.await.AsyncTask;
+import vt.async.await.AsyncTaskScope;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,13 +17,13 @@ public final class DashboardService {
     }
 
     public Dashboard load(String customerId) {
-        try (TaskScope scope = this.asyncRuntime.scope()) {
-            Task<String> customerTask = scope.async(
+        try (AsyncTaskScope scope = this.asyncRuntime.scope()) {
+            AsyncTask<String> customerTask = scope.async(
                     "load-customer",
                     () -> "Customer(" + customerId + ")"
             );
 
-            Task<List<String>> ordersTask = scope.async(
+            AsyncTask<List<String>> ordersTask = scope.async(
                     "load-orders",
                     () -> List.of("Order-1", "Order-2")
             );

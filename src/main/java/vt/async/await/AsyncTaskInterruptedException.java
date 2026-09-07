@@ -3,7 +3,7 @@ package vt.async.await;
 /**
  * Exception thrown when the thread awaiting a task is interrupted.
  */
-public final class TaskInterruptedException extends RuntimeException {
+public final class AsyncTaskInterruptedException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -12,7 +12,7 @@ public final class TaskInterruptedException extends RuntimeException {
      * @param message the detail message
      * @param cause the underlying InterruptedException
      */
-    public TaskInterruptedException(String message, InterruptedException cause) {
+    public AsyncTaskInterruptedException(String message, InterruptedException cause) {
         super(message, cause);
     }
 }

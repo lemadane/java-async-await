@@ -1,13 +1,13 @@
 package vt.async.await.spring;
 
-import vt.async.await.TaskDecorator;
+import vt.async.await.AsyncTaskDecorator;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
 /**
- * Task decorator for Spring RequestAttributes context propagation.
+ * AsyncTask decorator for Spring RequestAttributes context propagation.
  */
-public final class RequestContextTaskDecorator implements TaskDecorator {
+public final class RequestContextAsyncTaskDecorator implements AsyncTaskDecorator {
 
     @Override
     public Runnable decorate(Runnable operation) {

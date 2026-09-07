@@ -17,21 +17,21 @@ import java.util.concurrent.TimeoutException;
  *
  * @param <T> the result type
  */
-public final class Task<T> implements Future<T> {
+public final class AsyncTask<T> implements Future<T> {
 
     /**
      * Internal lifecycle states of a task.
      */
     public enum State {
-        /** Task has been created but not yet started. */
+        /** AsyncTask has been created but not yet started. */
         CREATED,
-        /** Task is currently running. */
+        /** AsyncTask is currently running. */
         RUNNING,
-        /** Task finished successfully. */
+        /** AsyncTask finished successfully. */
         SUCCESS,
-        /** Task finished with an error. */
+        /** AsyncTask finished with an error. */
         FAILED,
-        /** Task was cancelled before or during execution. */
+        /** AsyncTask was cancelled before or during execution. */
         CANCELLED
     }
 
@@ -54,7 +54,7 @@ public final class Task<T> implements Future<T> {
         return ownerScopeId;
     }
 
-    Task(String name, Callable<T> callable, Thread executingThread, java.util.function.Function<Task<T>, Runnable> startActionFactory) {
+    AsyncTask(String name, Callable<T> callable, Thread executingThread, java.util.function.Function<AsyncTask<T>, Runnable> startActionFactory) {
         this.name = name != null && !name.isBlank() ? name : "anonymous";
         this.futureTask = new ManagedFutureTask<>(callable, this);
         this.executingThread = executingThread;
@@ -241,8 +241,8 @@ public final class Task<T> implements Future<T> {
      *
      * @return the result of the task
      * @throws RuntimeException if the task threw an unchecked exception or was cancelled
-     * @throws TaskExecutionException if the task threw a checked exception
-     * @throws TaskInterruptedException if the awaiting thread was interrupted
+     * @throws AsyncTaskExecutionException if the task threw a checked exception
+     * @throws AsyncTaskInterruptedException if the awaiting thread was interrupted
      */
     public T await() {
         try {
@@ -266,10 +266,10 @@ public final class Task<T> implements Future<T> {
      *
      * @param timeout the maximum duration to wait
      * @return the result of the task
-     * @throws TaskTimeoutException if the task did not complete within the timeout
+     * @throws AsyncTaskTimeoutException if the task did not complete within the timeout
      * @throws RuntimeException if the task threw an unchecked exception or was cancelled
-     * @throws TaskExecutionException if the task threw a checked exception
-     * @throws TaskInterruptedException if the awaiting thread was interrupted
+     * @throws AsyncTaskExecutionException if the task threw a checked exception
+     * @throws AsyncTaskInterruptedException if the awaiting thread was interrupted
      */
     public T await(Duration timeout) {
         long nanos = toNanosSafe(timeout);
@@ -287,7 +287,7 @@ public final class Task<T> implements Future<T> {
             }
             throw ExceptionSupport.unwrapAndRethrow(e);
         } catch (TimeoutException e) {
-            throw new TaskTimeoutException(name, timeout, e);
+            throw new AsyncTaskTimeoutException(name, timeout, e);
         }
     }
 
@@ -386,9 +386,9 @@ public final class Task<T> implements Future<T> {
     }
 
     static final class ManagedFutureTask<T> extends FutureTask<T> {
-        private final Task<T> owner;
+        private final AsyncTask<T> owner;
 
-        ManagedFutureTask(Callable<T> callable, Task<T> owner) {
+        ManagedFutureTask(Callable<T> callable, AsyncTask<T> owner) {
             super(callable);
             this.owner = owner;
         }

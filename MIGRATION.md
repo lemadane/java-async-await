@@ -8,10 +8,10 @@ This document describes the changes required when migrating from `0.1.0-alpha.1`
 When the thread awaiting a task was interrupted, the library threw a `CancellationException` with the `InterruptedException` as the cause.
 
 ### New Behavior
-The library now throws a dedicated `vt.async.await.TaskInterruptedException` (unchecked), which preserves the original `InterruptedException` as its cause and restores the thread's interrupt flag.
+The library now throws a dedicated `vt.async.await.AsyncTaskInterruptedException` (unchecked), which preserves the original `InterruptedException` as its cause and restores the thread's interrupt flag.
 
 ### Migration Action
-Update your exception catching blocks to expect `TaskInterruptedException` instead of `CancellationException` when dealing with awaiting thread interruptions:
+Update your exception catching blocks to expect `AsyncTaskInterruptedException` instead of `CancellationException` when dealing with awaiting thread interruptions:
 
 ```java
 // Before
@@ -26,17 +26,17 @@ try {
 // After
 try {
     VT.await(task);
-} catch (TaskInterruptedException e) {
+} catch (AsyncTaskInterruptedException e) {
     // Handle awaiting thread interruption
 }
 ```
 
 ---
 
-## 2. Await Timeouts and Task Cancellation
+## 2. Await Timeouts and AsyncTask Cancellation
 
 ### Old Behavior
-Awaiting a task with a timeout (`VT.await(task, timeout)`) only stopped waiting (throwing `TaskTimeoutException`) and left the child task running.
+Awaiting a task with a timeout (`VT.await(task, timeout)`) only stopped waiting (throwing `AsyncTaskTimeoutException`) and left the child task running.
 
 ### New Behavior
 The default behavior remains the same (stopping waiting without cancelling). However, we have added a new helper `awaitAndCancel(task, timeout)` which explicitly cancels the task if it times out.
@@ -48,7 +48,7 @@ If you want the task to be cancelled on timeout, migrate from:
 // Before
 try {
     VT.await(task, timeout);
-} catch (TaskTimeoutException e) {
+} catch (AsyncTaskTimeoutException e) {
     task.cancel(true);
     throw e;
 }

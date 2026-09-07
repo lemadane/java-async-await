@@ -17,9 +17,9 @@ class CombinatorTest {
 
     @Test
     void testAllSuccess() {
-        Task<String> t1 = VT.async(() -> "one");
-        Task<String> t2 = VT.async(() -> "two");
-        Task<String> t3 = VT.async(() -> "three");
+        AsyncTask<String> t1 = VT.async(() -> "one");
+        AsyncTask<String> t2 = VT.async(() -> "two");
+        AsyncTask<String> t3 = VT.async(() -> "three");
 
         List<String> results = VT.all(Arrays.asList(t1, t2, t3));
         assertEquals(Arrays.asList("one", "two", "three"), results);
@@ -30,7 +30,7 @@ class CombinatorTest {
         CountDownLatch runLatch = new CountDownLatch(1);
         CountDownLatch cancelLatch = new CountDownLatch(1);
 
-        Task<String> t1 = VT.async(() -> {
+        AsyncTask<String> t1 = VT.async(() -> {
             runLatch.countDown();
             try {
                 Thread.sleep(5000);
@@ -40,12 +40,12 @@ class CombinatorTest {
             return "slow";
         });
 
-        Task<String> t2 = VT.async(() -> {
+        AsyncTask<String> t2 = VT.async(() -> {
             runLatch.await();
             throw new IOException("immediate fail");
         });
 
-        TaskExecutionException ex = assertThrows(TaskExecutionException.class, () -> {
+        AsyncTaskExecutionException ex = assertThrows(AsyncTaskExecutionException.class, () -> {
             VT.all(Arrays.asList(t1, t2));
         });
 
@@ -61,7 +61,7 @@ class CombinatorTest {
         CountDownLatch runLatch = new CountDownLatch(1);
         CountDownLatch cancelLatch = new CountDownLatch(1);
 
-        Task<String> t1 = VT.async(() -> {
+        AsyncTask<String> t1 = VT.async(() -> {
             runLatch.countDown();
             try {
                 Thread.sleep(5000);
@@ -71,7 +71,7 @@ class CombinatorTest {
             return "slow";
         });
 
-        Task<String> t2 = VT.async(() -> {
+        AsyncTask<String> t2 = VT.async(() -> {
             runLatch.await();
             return "fast success";
         });
@@ -85,10 +85,10 @@ class CombinatorTest {
 
     @Test
     void testAnyAllFail() {
-        Task<String> t1 = VT.async(() -> {
+        AsyncTask<String> t1 = VT.async(() -> {
             throw new IllegalArgumentException("fail 1");
         });
-        Task<String> t2 = VT.async(() -> {
+        AsyncTask<String> t2 = VT.async(() -> {
             throw new IOException("fail 2");
         });
 
@@ -105,7 +105,7 @@ class CombinatorTest {
         CountDownLatch runLatch = new CountDownLatch(1);
         CountDownLatch cancelLatch = new CountDownLatch(1);
 
-        Task<String> t1 = VT.async(() -> {
+        AsyncTask<String> t1 = VT.async(() -> {
             runLatch.countDown();
             try {
                 Thread.sleep(5000);
@@ -115,7 +115,7 @@ class CombinatorTest {
             return "slow";
         });
 
-        Task<String> t2 = VT.async(() -> {
+        AsyncTask<String> t2 = VT.async(() -> {
             runLatch.await();
             return "fast race win";
         });
@@ -132,7 +132,7 @@ class CombinatorTest {
         CountDownLatch runLatch = new CountDownLatch(1);
         CountDownLatch cancelLatch = new CountDownLatch(1);
 
-        Task<String> t1 = VT.async(() -> {
+        AsyncTask<String> t1 = VT.async(() -> {
             runLatch.countDown();
             try {
                 Thread.sleep(5000);
@@ -142,7 +142,7 @@ class CombinatorTest {
             return "slow";
         });
 
-        Task<String> t2 = VT.async(() -> {
+        AsyncTask<String> t2 = VT.async(() -> {
             runLatch.await();
             throw new RuntimeException("fast fail");
         });
@@ -158,28 +158,28 @@ class CombinatorTest {
 
     @Test
     void testAllSettled() {
-        Task<String> t1 = VT.async(() -> "success");
-        Task<String> t2 = VT.async(() -> {
+        AsyncTask<String> t1 = VT.async(() -> "success");
+        AsyncTask<String> t2 = VT.async(() -> {
             throw new RuntimeException("fail");
         });
-        Task<String> t3 = VT.async(() -> {
+        AsyncTask<String> t3 = VT.async(() -> {
             Thread.sleep(5000);
             return "never";
         });
         t3.cancel(true);
 
-        Collection<Task<? extends String>> settled = VT.allSettled(Arrays.asList(t1, t2, t3));
+        Collection<AsyncTask<? extends String>> settled = VT.allSettled(Arrays.asList(t1, t2, t3));
         assertEquals(3, settled.size());
         assertTrue(t1.isDone() && !t1.isCancelled());
-        assertTrue(t2.isDone() && t2.lifecycleState() == Task.State.FAILED);
+        assertTrue(t2.isDone() && t2.lifecycleState() == AsyncTask.State.FAILED);
         assertTrue(t3.isDone() && t3.isCancelled());
     }
 
     @Test
     void testScopeOwnershipValidation() {
-        try (TaskScope scope1 = VT.scope()) {
-            Task<String> task1 = scope1.async(() -> "scope 1");
-            try (TaskScope scope2 = VT.scope()) {
+        try (AsyncTaskScope scope1 = VT.scope()) {
+            AsyncTask<String> task1 = scope1.async(() -> "scope 1");
+            try (AsyncTaskScope scope2 = VT.scope()) {
                 assertThrows(IllegalArgumentException.class, () -> {
                     scope2.all(Arrays.asList(task1));
                 });

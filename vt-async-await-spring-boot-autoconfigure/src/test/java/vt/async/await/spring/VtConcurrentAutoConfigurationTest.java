@@ -1,8 +1,8 @@
 package vt.async.await.spring;
 
 import vt.async.await.AsyncRuntime;
-import vt.async.await.Task;
-import vt.async.await.TaskDecorator;
+import vt.async.await.AsyncTask;
+import vt.async.await.AsyncTaskDecorator;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -21,7 +21,7 @@ class VtConcurrentAutoConfigurationTest {
         contextRunner.run(context -> {
             assertThat(context).hasSingleBean(AsyncRuntime.class);
             AsyncRuntime runtime = context.getBean(AsyncRuntime.class);
-            Task<String> task = runtime.async(() -> Thread.currentThread().getName());
+            AsyncTask<String> task = runtime.async(() -> Thread.currentThread().getName());
             assertThat(runtime.await(task)).startsWith("vt-task-");
         });
     }
@@ -33,19 +33,19 @@ class VtConcurrentAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasSingleBean(AsyncRuntime.class);
                     AsyncRuntime runtime = context.getBean(AsyncRuntime.class);
-                    Task<String> task = runtime.async(() -> Thread.currentThread().getName());
+                    AsyncTask<String> task = runtime.async(() -> Thread.currentThread().getName());
                     assertThat(runtime.await(task)).startsWith("custom-prefix-");
                 });
     }
 
     @Test
-    void appliesCustomTaskDecoratorBean() {
+    void appliesCustomAsyncTaskDecoratorBean() {
         contextRunner
                 .withUserConfiguration(CustomDecoratorConfiguration.class)
                 .run(context -> {
                     assertThat(context).hasSingleBean(AsyncRuntime.class);
                     AsyncRuntime runtime = context.getBean(AsyncRuntime.class);
-                    Task<String> task = runtime.async(() -> CustomDecoratorConfiguration.TEST_VALUE.get());
+                    AsyncTask<String> task = runtime.async(() -> CustomDecoratorConfiguration.TEST_VALUE.get());
                     assertThat(runtime.await(task)).isEqualTo("decorated");
                 });
     }
@@ -74,7 +74,7 @@ class VtConcurrentAutoConfigurationTest {
         static final ThreadLocal<String> TEST_VALUE = new ThreadLocal<>();
 
         @Bean
-        TaskDecorator taskDecorator() {
+        AsyncTaskDecorator taskDecorator() {
             return runnable -> () -> {
                 TEST_VALUE.set("decorated");
                 try {

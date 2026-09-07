@@ -18,7 +18,7 @@ class VTTest {
 
     @Test
     void runsCallableOnVirtualThread() {
-        Task<Boolean> task = async(() -> Thread.currentThread().isVirtual());
+        AsyncTask<Boolean> task = async(() -> Thread.currentThread().isVirtual());
         assertTrue(await(task));
         assertTrue(task.isVirtualThread());
     }
@@ -26,7 +26,7 @@ class VTTest {
     @Test
     void runsRunnableReturningVoidTask() {
         AtomicBoolean ran = new AtomicBoolean(false);
-        Task<Void> task = async(() -> ran.set(true));
+        AsyncTask<Void> task = async(() -> ran.set(true));
         await(task);
         assertTrue(ran.get());
     }
@@ -35,7 +35,7 @@ class VTTest {
     void namesTaskAndThread() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> threadName = new AtomicReference<>();
-        Task<String> task = async("test-operation", () -> {
+        AsyncTask<String> task = async("test-operation", () -> {
             threadName.set(Thread.currentThread().getName());
             latch.countDown();
             return "ok";
@@ -51,13 +51,13 @@ class VTTest {
         CountDownLatch bothStarted = new CountDownLatch(2);
         CountDownLatch release = new CountDownLatch(1);
 
-        Task<String> task1 = async(() -> {
+        AsyncTask<String> task1 = async(() -> {
             bothStarted.countDown();
             release.await();
             return "one";
         });
 
-        Task<String> task2 = async(() -> {
+        AsyncTask<String> task2 = async(() -> {
             bothStarted.countDown();
             release.await();
             return "two";
@@ -72,7 +72,7 @@ class VTTest {
 
     @Test
     void rethrowsRuntimeExceptionDirectly() {
-        Task<String> task = async(() -> {
+        AsyncTask<String> task = async(() -> {
             throw new IllegalStateException("Simulated failure");
         });
 
@@ -82,7 +82,7 @@ class VTTest {
 
     @Test
     void rethrowsErrorDirectly() {
-        Task<String> task = async(() -> {
+        AsyncTask<String> task = async(() -> {
             throw new OutOfMemoryError("Simulated OOM");
         });
 
@@ -91,12 +91,12 @@ class VTTest {
     }
 
     @Test
-    void wrapsCheckedExceptionInTaskExecutionException() {
-        Task<String> task = async(() -> {
+    void wrapsCheckedExceptionInAsyncTaskExecutionException() {
+        AsyncTask<String> task = async(() -> {
             throw new IOException("IO error");
         });
 
-        TaskExecutionException ex = assertThrows(TaskExecutionException.class, () -> await(task));
+        AsyncTaskExecutionException ex = assertThrows(AsyncTaskExecutionException.class, () -> await(task));
         assertInstanceOf(IOException.class, ex.getCause());
         assertEquals("IO error", ex.getCause().getMessage());
     }
@@ -104,12 +104,12 @@ class VTTest {
     @Test
     void handlesAwaitTimeout() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
-        Task<String> task = async("slow-task", () -> {
+        AsyncTask<String> task = async("slow-task", () -> {
             latch.await();
             return "done";
         });
 
-        TaskTimeoutException timeoutEx = assertThrows(TaskTimeoutException.class, () -> await(task, Duration.ofMillis(50)));
+        AsyncTaskTimeoutException timeoutEx = assertThrows(AsyncTaskTimeoutException.class, () -> await(task, Duration.ofMillis(50)));
         assertEquals("slow-task", timeoutEx.taskName());
         assertEquals(Duration.ofMillis(50), timeoutEx.timeout());
         assertTrue(task.isRunning());
@@ -123,7 +123,7 @@ class VTTest {
         CountDownLatch started = new CountDownLatch(1);
         AtomicBoolean interrupted = new AtomicBoolean(false);
 
-        Task<String> task = async(() -> {
+        AsyncTask<String> task = async(() -> {
             started.countDown();
             try {
                 Thread.sleep(5000);
@@ -148,8 +148,8 @@ class VTTest {
         CountDownLatch childStarted = new CountDownLatch(1);
         AtomicBoolean childInterrupted = new AtomicBoolean(false);
 
-        Task<String> childTask;
-        try (TaskScope scope = VT.scope()) {
+        AsyncTask<String> childTask;
+        try (AsyncTaskScope scope = VT.scope()) {
             childTask = scope.async(() -> {
                 childStarted.countDown();
                 try {
@@ -167,9 +167,9 @@ class VTTest {
 
     @Test
     void taskScopeRejectsForeignTask() {
-        try (TaskScope scope1 = VT.scope();
-             TaskScope scope2 = VT.scope()) {
-            Task<String> foreignTask = scope1.async(() -> "foreign");
+        try (AsyncTaskScope scope1 = VT.scope();
+             AsyncTaskScope scope2 = VT.scope()) {
+            AsyncTask<String> foreignTask = scope1.async(() -> "foreign");
             assertThrows(IllegalArgumentException.class, () -> scope2.await(foreignTask));
         }
     }
@@ -177,19 +177,19 @@ class VTTest {
     @Test
     void scopedOperationExecutesAndCleansUp() {
         String result = VT.scoped(scope -> {
-            Task<String> task1 = scope.async(() -> "hello");
-            Task<String> task2 = scope.async(() -> "world");
+            AsyncTask<String> task1 = scope.async(() -> "hello");
+            AsyncTask<String> task2 = scope.async(() -> "world");
             return scope.await(task1) + " " + scope.await(task2);
         });
         assertEquals("hello world", result);
     }
 
     @Test
-    void customAsyncRuntimeWithTaskDecoratorPropagatesContext() {
+    void customAsyncRuntimeWithAsyncTaskDecoratorPropagatesContext() {
         ThreadLocal<String> context = new ThreadLocal<>();
         context.set("user-123");
 
-        TaskDecorator decorator = runnable -> {
+        AsyncTaskDecorator decorator = runnable -> {
             String captured = context.get();
             return () -> {
                 String previous = context.get();
@@ -207,7 +207,7 @@ class VTTest {
                 .taskDecorator(decorator)
                 .build();
 
-        Task<String> task = customRuntime.async(() -> context.get());
+        AsyncTask<String> task = customRuntime.async(() -> context.get());
         assertEquals("user-123", customRuntime.await(task));
     }
 }

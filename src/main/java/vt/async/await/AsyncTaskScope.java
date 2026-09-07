@@ -16,7 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <p>Ensures thread-safe registration and idempotent cleanup of tasks.
  */
-public final class TaskScope implements AutoCloseable {
+public final class AsyncTaskScope implements AutoCloseable {
 
     private enum ScopeState {
         OPEN,
@@ -27,11 +27,11 @@ public final class TaskScope implements AutoCloseable {
     private static final java.util.concurrent.atomic.AtomicLong scopeSequence = new java.util.concurrent.atomic.AtomicLong(0);
     private final long id = scopeSequence.incrementAndGet();
     private final AsyncRuntime runtime;
-    private final Set<Task<?>> tasks = ConcurrentHashMap.newKeySet();
+    private final Set<AsyncTask<?>> tasks = ConcurrentHashMap.newKeySet();
     private final ReentrantLock lock = new ReentrantLock();
     private ScopeState state = ScopeState.OPEN;
 
-    TaskScope(AsyncRuntime runtime) {
+    AsyncTaskScope(AsyncRuntime runtime) {
         this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
 
@@ -40,10 +40,10 @@ public final class TaskScope implements AutoCloseable {
      *
      * @param <T> the result type
      * @param operation the operation
-     * @return the created Task
+     * @return the created AsyncTask
      * @throws IllegalStateException if scope is closed or closing
      */
-    public <T> Task<T> async(Callable<? extends T> operation) {
+    public <T> AsyncTask<T> async(Callable<? extends T> operation) {
         return async(null, operation);
     }
 
@@ -53,16 +53,16 @@ public final class TaskScope implements AutoCloseable {
      * @param <T> the result type
      * @param taskName logical task name
      * @param operation the operation
-     * @return the created Task
+     * @return the created AsyncTask
      * @throws IllegalStateException if scope is closed or closing
      */
-    public <T> Task<T> async(String taskName, Callable<? extends T> operation) {
+    public <T> AsyncTask<T> async(String taskName, Callable<? extends T> operation) {
         Objects.requireNonNull(operation, "operation");
-        Task<T> task;
+        AsyncTask<T> task;
         lock.lock();
         try {
             if (state != ScopeState.OPEN) {
-                throw new IllegalStateException("TaskScope is not open (state: " + state + ")");
+                throw new IllegalStateException("AsyncTaskScope is not open (state: " + state + ")");
             }
             task = runtime.createUnstartedTask(taskName, operation);
             task.setOwnerScopeId(this.id);
@@ -89,10 +89,10 @@ public final class TaskScope implements AutoCloseable {
      * Submits a runnable task bound to this scope.
      *
      * @param operation the operation
-     * @return the created Task
+     * @return the created AsyncTask
      * @throws IllegalStateException if scope is closed or closing
      */
-    public Task<Void> async(Runnable operation) {
+    public AsyncTask<Void> async(Runnable operation) {
         return async(null, operation);
     }
 
@@ -101,10 +101,10 @@ public final class TaskScope implements AutoCloseable {
      *
      * @param taskName logical task name
      * @param operation the operation
-     * @return the created Task
+     * @return the created AsyncTask
      * @throws IllegalStateException if scope is closed or closing
      */
-    public Task<Void> async(String taskName, Runnable operation) {
+    public AsyncTask<Void> async(String taskName, Runnable operation) {
         Objects.requireNonNull(operation, "operation");
         return async(taskName, () -> {
             operation.run();
@@ -120,7 +120,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the result
      * @throws IllegalArgumentException if task was not created by this scope
      */
-    public <T> T await(Task<T> task) {
+    public <T> T await(AsyncTask<T> task) {
         validateTaskOwner(task);
         try {
             return runtime.await(task);
@@ -140,7 +140,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the result
      * @throws IllegalArgumentException if task was not created by this scope
      */
-    public <T> T await(Task<T> task, Duration timeout) {
+    public <T> T await(AsyncTask<T> task, Duration timeout) {
         validateTaskOwner(task);
         try {
             return runtime.await(task, timeout);
@@ -160,7 +160,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the result of the task
      * @throws IllegalArgumentException if task was not created by this scope
      */
-    public <T> T awaitAndCancel(Task<T> task, Duration timeout) {
+    public <T> T awaitAndCancel(AsyncTask<T> task, Duration timeout) {
         validateTaskOwner(task);
         try {
             return runtime.awaitAndCancel(task, timeout);
@@ -175,7 +175,7 @@ public final class TaskScope implements AutoCloseable {
      * Cancels all unfinished child tasks registered with this scope.
      */
     public void cancel() {
-        for (Task<?> task : tasks) {
+        for (AsyncTask<?> task : tasks) {
             if (!task.isDone()) {
                 task.cancel(true);
             }
@@ -198,7 +198,7 @@ public final class TaskScope implements AutoCloseable {
 
     @Override
     public void close() {
-        Set<Task<?>> tasksToCancel;
+        Set<AsyncTask<?>> tasksToCancel;
         lock.lock();
         try {
             if (state != ScopeState.OPEN) {
@@ -213,14 +213,14 @@ public final class TaskScope implements AutoCloseable {
         Throwable primaryException = null;
 
         // Cancel all unfinished tasks
-        for (Task<?> task : tasksToCancel) {
+        for (AsyncTask<?> task : tasksToCancel) {
             if (!task.isDone()) {
                 task.cancel(true);
             }
         }
 
         // Ensure all child tasks are completed/awaited to avoid leaks
-        for (Task<?> task : tasksToCancel) {
+        for (AsyncTask<?> task : tasksToCancel) {
             // Prevent deadlocking if close is called from a child task within the scope
             if (task.executingThread() == Thread.currentThread()) {
                 continue;
@@ -259,7 +259,7 @@ public final class TaskScope implements AutoCloseable {
             if (primaryException instanceof Error error) {
                 throw error;
             }
-            throw new TaskExecutionException("Error closing task scope", primaryException);
+            throw new AsyncTaskExecutionException("Error closing task scope", primaryException);
         }
     }
 
@@ -272,7 +272,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the list of results in the same order as the inputs
      * @throws IllegalArgumentException if any task was not created by this scope
      */
-    public <T> List<T> all(Collection<Task<? extends T>> inputTasks) {
+    public <T> List<T> all(Collection<AsyncTask<? extends T>> inputTasks) {
         verifyScopeOwnership(inputTasks);
         try {
             return runtime.all(inputTasks);
@@ -290,7 +290,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the first successful result
      * @throws IllegalArgumentException if any task was not created by this scope
      */
-    public <T> T any(Collection<Task<? extends T>> inputTasks) {
+    public <T> T any(Collection<AsyncTask<? extends T>> inputTasks) {
         verifyScopeOwnership(inputTasks);
         try {
             return runtime.any(inputTasks);
@@ -308,7 +308,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the result of the first completed task
      * @throws IllegalArgumentException if any task was not created by this scope
      */
-    public <T> T race(Collection<Task<? extends T>> inputTasks) {
+    public <T> T race(Collection<AsyncTask<? extends T>> inputTasks) {
         verifyScopeOwnership(inputTasks);
         try {
             return runtime.race(inputTasks);
@@ -326,7 +326,7 @@ public final class TaskScope implements AutoCloseable {
      * @return the input collection of tasks after all have completed
      * @throws IllegalArgumentException if any task was not created by this scope
      */
-    public <T> Collection<Task<? extends T>> allSettled(Collection<Task<? extends T>> inputTasks) {
+    public <T> Collection<AsyncTask<? extends T>> allSettled(Collection<AsyncTask<? extends T>> inputTasks) {
         verifyScopeOwnership(inputTasks);
         try {
             return runtime.allSettled(inputTasks);
@@ -335,30 +335,30 @@ public final class TaskScope implements AutoCloseable {
         }
     }
 
-    private void verifyScopeOwnership(Collection<? extends Task<?>> inputTasks) {
+    private void verifyScopeOwnership(Collection<? extends AsyncTask<?>> inputTasks) {
         if (inputTasks == null) {
             return;
         }
-        for (Task<?> task : inputTasks) {
+        for (AsyncTask<?> task : inputTasks) {
             validateTaskOwner(task);
         }
     }
 
-    private void cleanSettledTasks(Collection<? extends Task<?>> inputTasks) {
+    private void cleanSettledTasks(Collection<? extends AsyncTask<?>> inputTasks) {
         if (inputTasks == null) {
             return;
         }
-        for (Task<?> task : inputTasks) {
+        for (AsyncTask<?> task : inputTasks) {
             if (task.isDone()) {
                 tasks.remove(task);
             }
         }
     }
 
-    private void validateTaskOwner(Task<?> task) {
+    private void validateTaskOwner(AsyncTask<?> task) {
         Objects.requireNonNull(task, "task");
         if (task.ownerScopeId() != this.id) {
-            throw new IllegalArgumentException("Task was not created by this scope: " + task.name());
+            throw new IllegalArgumentException("AsyncTask was not created by this scope: " + task.name());
         }
     }
 }

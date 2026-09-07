@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LifecycleAndListenerTest {
 
-    static class TestDecorator implements TaskDecorator {
+    static class TestDecorator implements AsyncTaskDecorator {
         final AtomicBoolean setupFailed = new AtomicBoolean(false);
         final AtomicBoolean cleanupFailed = new AtomicBoolean(false);
         final AtomicBoolean runCalled = new AtomicBoolean(false);
@@ -48,9 +48,9 @@ class LifecycleAndListenerTest {
         TestDecorator decorator = new TestDecorator();
         AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
 
-        Task<String> task = runtime.async(() -> "success");
+        AsyncTask<String> task = runtime.async(() -> "success");
         assertEquals("success", runtime.await(task));
-        assertEquals(Task.State.SUCCESS, task.lifecycleState());
+        assertEquals(AsyncTask.State.SUCCESS, task.lifecycleState());
         assertTrue(decorator.runCalled.get());
 
         runtime.close();
@@ -61,13 +61,13 @@ class LifecycleAndListenerTest {
         TestDecorator decorator = new TestDecorator();
         AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
 
-        Task<String> task = runtime.async(() -> {
+        AsyncTask<String> task = runtime.async(() -> {
             throw new RuntimeException("operation failure");
         });
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> runtime.await(task));
         assertEquals("operation failure", ex.getMessage());
-        assertEquals(Task.State.FAILED, task.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, task.lifecycleState());
         assertTrue(decorator.runCalled.get());
 
         runtime.close();
@@ -79,11 +79,11 @@ class LifecycleAndListenerTest {
         decorator.setupFailed.set(true);
         AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
 
-        Task<String> task = runtime.async(() -> "never run");
+        AsyncTask<String> task = runtime.async(() -> "never run");
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> runtime.await(task));
         assertEquals("setup failure", ex.getMessage());
-        assertEquals(Task.State.FAILED, task.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, task.lifecycleState());
         assertFalse(decorator.runCalled.get());
 
         runtime.close();
@@ -95,11 +95,11 @@ class LifecycleAndListenerTest {
         decorator.cleanupFailed.set(true);
         AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
 
-        Task<String> task = runtime.async(() -> "user success");
+        AsyncTask<String> task = runtime.async(() -> "user success");
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> runtime.await(task));
         assertEquals("cleanup failure", ex.getMessage());
-        assertEquals(Task.State.FAILED, task.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, task.lifecycleState());
         assertTrue(decorator.runCalled.get());
 
         runtime.close();
@@ -111,13 +111,13 @@ class LifecycleAndListenerTest {
         decorator.cleanupFailed.set(true);
         AsyncRuntime runtime = AsyncRuntime.builder().taskDecorator(decorator).build();
 
-        Task<String> task = runtime.async(() -> {
+        AsyncTask<String> task = runtime.async(() -> {
             throw new IOException("user failure");
         });
 
-        TaskExecutionException ex = assertThrows(TaskExecutionException.class, () -> runtime.await(task));
+        AsyncTaskExecutionException ex = assertThrows(AsyncTaskExecutionException.class, () -> runtime.await(task));
         assertEquals("user failure", ex.getCause().getMessage());
-        assertEquals(Task.State.FAILED, task.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, task.lifecycleState());
 
         Throwable[] suppressed = ex.getCause().getSuppressed();
         assertEquals(1, suppressed.length);
@@ -129,10 +129,10 @@ class LifecycleAndListenerTest {
     @Test
     void testCancelBeforeStart() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.createUnstartedTask("unstarted", () -> "ok");
+        AsyncTask<String> task = runtime.createUnstartedTask("unstarted", () -> "ok");
 
         assertTrue(task.cancel(true));
-        assertEquals(Task.State.CANCELLED, task.lifecycleState());
+        assertEquals(AsyncTask.State.CANCELLED, task.lifecycleState());
 
         task.start();
         assertThrows(CancellationException.class, task::await);
@@ -146,7 +146,7 @@ class LifecycleAndListenerTest {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
 
-        Task<String> task = runtime.async(() -> {
+        AsyncTask<String> task = runtime.async(() -> {
             started.countDown();
             release.await();
             return "ok";
@@ -154,7 +154,7 @@ class LifecycleAndListenerTest {
 
         assertTrue(started.await(5, TimeUnit.SECONDS));
         assertTrue(task.cancel(true));
-        assertEquals(Task.State.CANCELLED, task.lifecycleState());
+        assertEquals(AsyncTask.State.CANCELLED, task.lifecycleState());
         assertTrue(task.isCancelled());
 
         release.countDown();
@@ -164,11 +164,11 @@ class LifecycleAndListenerTest {
     @Test
     void testCancelAfterSuccess() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> "success");
+        AsyncTask<String> task = runtime.async(() -> "success");
         assertEquals("success", runtime.await(task));
 
         assertFalse(task.cancel(true));
-        assertEquals(Task.State.SUCCESS, task.lifecycleState());
+        assertEquals(AsyncTask.State.SUCCESS, task.lifecycleState());
 
         runtime.close();
     }
@@ -176,13 +176,13 @@ class LifecycleAndListenerTest {
     @Test
     void testCancelAfterFailure() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> {
+        AsyncTask<String> task = runtime.async(() -> {
             throw new RuntimeException("fail");
         });
         assertThrows(RuntimeException.class, () -> runtime.await(task));
 
         assertFalse(task.cancel(true));
-        assertEquals(Task.State.FAILED, task.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, task.lifecycleState());
 
         runtime.close();
     }
@@ -190,7 +190,7 @@ class LifecycleAndListenerTest {
     @Test
     void testNoRunningTaskRemainsRunningAfterCompletion() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> "done");
+        AsyncTask<String> task = runtime.async(() -> "done");
         assertEquals("done", runtime.await(task));
         assertFalse(task.isRunning());
         runtime.close();
@@ -201,7 +201,7 @@ class LifecycleAndListenerTest {
     @Test
     void testListenerExecutesOnceAfterSuccess() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> "success");
+        AsyncTask<String> task = runtime.async(() -> "success");
 
         AtomicInteger count = new AtomicInteger(0);
         task.onComplete(count::incrementAndGet);
@@ -214,7 +214,7 @@ class LifecycleAndListenerTest {
     @Test
     void testListenerExecutesOnceAfterFailure() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> {
+        AsyncTask<String> task = runtime.async(() -> {
             throw new RuntimeException("fail");
         });
 
@@ -229,7 +229,7 @@ class LifecycleAndListenerTest {
     @Test
     void testListenerExecutesOnceAfterCancellation() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.createUnstartedTask("unstarted", () -> "ok");
+        AsyncTask<String> task = runtime.createUnstartedTask("unstarted", () -> "ok");
 
         AtomicInteger count = new AtomicInteger(0);
         task.onComplete(count::incrementAndGet);
@@ -242,7 +242,7 @@ class LifecycleAndListenerTest {
     @Test
     void testListenerFailingDoesNotBlockOthers() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> "ok");
+        AsyncTask<String> task = runtime.async(() -> "ok");
 
         AtomicInteger count = new AtomicInteger(0);
         task.onComplete(() -> {
@@ -258,7 +258,7 @@ class LifecycleAndListenerTest {
     @Test
     void testListenerAddedAfterCompletionExecutesImmediately() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> task = runtime.async(() -> "ok");
+        AsyncTask<String> task = runtime.async(() -> "ok");
         assertEquals("ok", runtime.await(task));
 
         AtomicInteger count = new AtomicInteger(0);
@@ -278,12 +278,12 @@ class LifecycleAndListenerTest {
         AsyncRuntime r1 = AsyncRuntime.builder().taskDecorator(decorator1).build();
         AsyncRuntime r2 = AsyncRuntime.builder().taskDecorator(decorator2).build();
 
-        Task<String> t1 = r1.async(() -> "one");
-        Task<String> t2 = r2.async(() -> "two");
+        AsyncTask<String> t1 = r1.async(() -> "one");
+        AsyncTask<String> t2 = r2.async(() -> "two");
 
         assertThrows(RuntimeException.class, () -> VT.all(Arrays.asList(t1, t2)));
         assertTrue(t1.isCancelled() || t1.isDone());
-        assertEquals(Task.State.FAILED, t2.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, t2.lifecycleState());
 
         r1.close();
         r2.close();
@@ -298,12 +298,12 @@ class LifecycleAndListenerTest {
         AsyncRuntime r1 = AsyncRuntime.builder().taskDecorator(decorator1).build();
         AsyncRuntime r2 = AsyncRuntime.builder().taskDecorator(decorator2).build();
 
-        Task<String> t1 = r1.async(() -> "one");
-        Task<String> t2 = r2.async(() -> "two");
+        AsyncTask<String> t1 = r1.async(() -> "one");
+        AsyncTask<String> t2 = r2.async(() -> "two");
 
         assertThrows(RuntimeException.class, () -> VT.all(Arrays.asList(t1, t2)));
         assertTrue(t1.isCancelled() || t1.isDone());
-        assertEquals(Task.State.FAILED, t2.lifecycleState());
+        assertEquals(AsyncTask.State.FAILED, t2.lifecycleState());
 
         r1.close();
         r2.close();
@@ -312,10 +312,10 @@ class LifecycleAndListenerTest {
     @Test
     void testAnyEarlyFailureLaterSuccess() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        Task<String> t1 = runtime.async(() -> {
+        AsyncTask<String> t1 = runtime.async(() -> {
             throw new RuntimeException("fail fast");
         });
-        Task<String> t2 = runtime.async(() -> {
+        AsyncTask<String> t2 = runtime.async(() -> {
             Thread.sleep(50);
             return "success";
         });
@@ -328,8 +328,8 @@ class LifecycleAndListenerTest {
     @Test
     void testRepeatedAwaitOwnershipValidity() {
         AsyncRuntime runtime = AsyncRuntime.builder().build();
-        try (TaskScope scope = runtime.scope()) {
-            Task<String> task = scope.async(() -> "val");
+        try (AsyncTaskScope scope = runtime.scope()) {
+            AsyncTask<String> task = scope.async(() -> "val");
 
             // First await
             assertEquals("val", scope.await(task));

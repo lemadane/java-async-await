@@ -7,21 +7,21 @@ import java.util.concurrent.TimeoutException;
 /**
  * Exception thrown when an await operation times out before task completion.
  */
-public final class TaskTimeoutException extends RuntimeException {
+public final class AsyncTaskTimeoutException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     private final String taskName;
     private final Duration timeout;
 
     /**
-     * Constructs a TaskTimeoutException.
+     * Constructs a AsyncTaskTimeoutException.
      *
      * @param taskName the name of the task that timed out
      * @param timeout the requested timeout duration
      * @param cause the underlying TimeoutException
      */
-    public TaskTimeoutException(String taskName, Duration timeout, TimeoutException cause) {
-        super("Task '" + (taskName != null ? taskName : "anonymous") + "' timed out after " + timeout, cause);
+    public AsyncTaskTimeoutException(String taskName, Duration timeout, TimeoutException cause) {
+        super("AsyncTask '" + (taskName != null ? taskName : "anonymous") + "' timed out after " + timeout, cause);
         this.taskName = taskName != null ? taskName : "anonymous";
         this.timeout = Objects.requireNonNull(timeout, "timeout");
     }

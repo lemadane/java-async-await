@@ -1,13 +1,13 @@
 package vt.async.await.spring;
 
-import vt.async.await.TaskDecorator;
+import vt.async.await.AsyncTaskDecorator;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
- * Task decorator for Spring Security SecurityContext propagation.
+ * AsyncTask decorator for Spring Security SecurityContext propagation.
  */
-public final class SecurityTaskDecorator implements TaskDecorator {
+public final class SecurityAsyncTaskDecorator implements AsyncTaskDecorator {
 
     @Override
     public Runnable decorate(Runnable operation) {
